@@ -13,3 +13,11 @@ export function getClientId() {
   }
   return id;
 }
+
+export function getUserName() {
+  return localStorage.getItem('wc2026-user-name') || null;
+}
+
+export function setUserName(name) {
+  localStorage.setItem('wc2026-user-name', name);
+}
