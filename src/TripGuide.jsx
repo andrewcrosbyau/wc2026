@@ -28,7 +28,7 @@ function Highlight({ text, query }) {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className="bg-amber-400/30 text-amber-200 rounded px-0.5">{text.slice(idx, idx + query.length)}</mark>
+      <mark className="bg-amber-100 rounded px-0.5" style={{ color: '#8A5A2A' }}>{text.slice(idx, idx + query.length)}</mark>
       {text.slice(idx + query.length)}
     </>
   );
@@ -72,38 +72,38 @@ function useSavedCards() {
 // ─── ACCENT COLOURS PER CITY ─────────────────────────────────────────────────
 
 const CITY_ACCENT = {
-  vancouver:  { nav: 'border-b-emerald-400', text: 'text-emerald-400', ring: 'border-emerald-500/30', bg: 'bg-emerald-500/10' },
-  seattle1:   { nav: 'border-b-sky-400',     text: 'text-sky-400',     ring: 'border-sky-500/30',     bg: 'bg-sky-500/10' },
-  olympic:    { nav: 'border-b-teal-400',    text: 'text-teal-400',    ring: 'border-teal-500/30',    bg: 'bg-teal-500/10' },
-  seattle2:   { nav: 'border-b-sky-400',     text: 'text-sky-400',     ring: 'border-sky-500/30',     bg: 'bg-sky-500/10' },
-  portland:   { nav: 'border-b-rose-400',    text: 'text-rose-400',    ring: 'border-rose-500/30',    bg: 'bg-rose-500/10' },
-  craterlake: { nav: 'border-b-cyan-400',    text: 'text-cyan-400',    ring: 'border-cyan-500/30',    bg: 'bg-cyan-500/10' },
-  napa:       { nav: 'border-b-purple-400',  text: 'text-purple-400',  ring: 'border-purple-500/30',  bg: 'bg-purple-500/10' },
-  sf:         { nav: 'border-b-orange-400',  text: 'text-orange-400',  ring: 'border-orange-500/30',  bg: 'bg-orange-500/10' },
+  vancouver:  { hex: '#2A7A4A' },
+  seattle1:   { hex: '#2A5A8A' },
+  olympic:    { hex: '#2A7A7A' },
+  seattle2:   { hex: '#2A5A8A' },
+  portland:   { hex: '#8A2A2A' },
+  craterlake: { hex: '#2A6A7A' },
+  napa:       { hex: '#6A2A7A' },
+  sf:         { hex: '#7A4A1A' },
 };
 
 // ─── SECTION META ─────────────────────────────────────────────────────────────
 
 const SECTION_META = {
-  dates:     { label: 'Dates',       Icon: CalendarDays },
-  sporting:  { label: 'Sporting',    Icon: Trophy },
-  culture:   { label: 'Culture',     Icon: Landmark },
-  running:   { label: 'Running',     Icon: Footprints },
-  food:      { label: 'Food & Drink',Icon: UtensilsCrossed },
-  hotelZone: { label: 'Hotel Zone',  Icon: Car },
+  dates:     { label: 'Dates',        Icon: CalendarDays,    color: '#6B6560' },
+  sporting:  { label: 'Sporting',     Icon: Trophy,          color: '#4A7A5A' },
+  culture:   { label: 'Culture',      Icon: Landmark,        color: '#4A5A8A' },
+  running:   { label: 'Running',      Icon: Footprints,      color: '#5A7A8A' },
+  food:      { label: 'Food & Drink', Icon: UtensilsCrossed, color: '#8A5A2A' },
+  hotelZone: { label: 'Hotel Zone',   Icon: Car,             color: '#7A4A3A' },
 };
 
 // ─── CARD STYLING ─────────────────────────────────────────────────────────────
 
 const CARD_STYLE = {
-  wc:      { border: 'border-l-amber-400',  title: 'text-amber-300',  bg: 'bg-amber-500/10' },
-  sport:   { border: 'border-l-green-500',  title: 'text-green-400',  bg: 'bg-slate-800/60' },
-  event:   { border: 'border-l-teal-400',   title: 'text-teal-400',   bg: 'bg-slate-800/60' },
-  note:    { border: 'border-l-slate-500',  title: 'text-slate-400',  bg: 'bg-slate-800/60' },
-  culture: { border: 'border-l-indigo-400', title: 'text-indigo-400', bg: 'bg-slate-800/60' },
-  running: { border: 'border-l-teal-400',   title: 'text-teal-400',   bg: 'bg-slate-800/60' },
-  food:    { border: 'border-l-amber-500',  title: 'text-amber-400',  bg: 'bg-slate-800/60' },
-  hotel:   { border: 'border-l-orange-400', title: 'text-orange-400', bg: 'bg-slate-800/60' },
+  wc:      { cardBg: '#FDF5F0', cardBorder: '#E8C0A0', title: '#C04E1A' },
+  sport:   { cardBg: '#F3F7F3', cardBorder: '#B0CDB8', title: '#4A7A5A' },
+  event:   { cardBg: '#FFFFFF', cardBorder: '#E8E0D8', title: '#4A5A8A' },
+  note:    { cardBg: '#FFFFFF', cardBorder: '#E8E0D8', title: '#6B6560' },
+  culture: { cardBg: '#FFFFFF', cardBorder: '#E8E0D8', title: '#4A5A8A' },
+  running: { cardBg: '#FFFFFF', cardBorder: '#E8E0D8', title: '#5A7A8A' },
+  food:    { cardBg: '#FFFFFF', cardBorder: '#E8E0D8', title: '#8A5A2A' },
+  hotel:   { cardBg: '#FFFFFF', cardBorder: '#E8E0D8', title: '#7A4A3A' },
 };
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
@@ -366,6 +366,21 @@ const CITIES = [
   },
 ];
 
+// ─── SAVE ID HELPERS ──────────────────────────────────────────────────────────
+
+function lookupSavedItem(id) {
+  const parts = id.split(':');
+  const [cityId, sectionKey, cardIdx, placeIdx] = parts;
+  const city = CITIES.find(c => c.id === cityId);
+  const item = city?.sections[sectionKey]?.[+cardIdx];
+  if (!item) return null;
+  if (placeIdx !== undefined) {
+    const place = item.places?.[+placeIdx];
+    return place ? { city, sectionKey, item, place, isPlace: true, id } : null;
+  }
+  return { city, sectionKey, item, isPlace: false, id };
+}
+
 // ─── SEARCH ───────────────────────────────────────────────────────────────────
 
 function searchCards(query) {
@@ -391,45 +406,67 @@ function searchCards(query) {
 
 // ─── COMPONENTS ──────────────────────────────────────────────────────────────
 
-function PlacesList({ places, query }) {
+function PlacesList({ places, query, cardId, saved, onSave }) {
   return (
     <ul className="mt-2 space-y-1.5">
-      {places.map((place, i) => (
-        <li key={i} className="flex items-start gap-1.5">
-          <a
-            href={mapsUrl(place.maps)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-sm text-slate-200 font-medium hover:text-sky-300 transition-colors group"
-          >
-            <MapPin size={11} className="shrink-0 mt-0.5 text-slate-500 group-hover:text-sky-400 transition-colors" />
-            <Highlight text={place.name} query={query} />
-          </a>
-          {place.detail && (
-            <span className="text-xs text-slate-500 mt-0.5 leading-tight">
-              · <Highlight text={place.detail} query={query} />
-            </span>
-          )}
-        </li>
-      ))}
+      {places.map((place, i) => {
+        const placeId = cardId ? `${cardId}:${i}` : null;
+        const isSaved = placeId && saved?.has(placeId);
+        return (
+          <li key={i} className="flex items-center gap-2 rounded-lg px-3 py-2 border" style={{ backgroundColor: '#FFFFFF', borderColor: '#E8E0D8' }}>
+            <MapPin size={12} className="shrink-0" style={{ color: '#A89E96' }} />
+            <a
+              href={mapsUrl(place.maps)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 min-w-0 flex items-baseline gap-1.5 transition-opacity hover:opacity-70"
+            >
+              <span className="text-sm font-medium" style={{ color: '#1A1714' }}>
+                <Highlight text={place.name} query={query} />
+              </span>
+              {place.detail && (
+                <span className="text-xs shrink-0" style={{ color: '#A89E96' }}>
+                  · <Highlight text={place.detail} query={query} />
+                </span>
+              )}
+            </a>
+            {placeId && onSave && (
+              <button
+                onClick={(e) => { e.preventDefault(); onSave(placeId); }}
+                className="shrink-0 transition-colors"
+                style={{ color: isSaved ? '#C04E1A' : '#D8CECA' }}
+                aria-label={isSaved ? 'Unsave' : 'Save'}
+              >
+                <Star size={13} fill={isSaved ? 'currentColor' : 'none'} />
+              </button>
+            )}
+            <ChevronRight size={12} className="shrink-0" style={{ color: '#D8CECA' }} />
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
 function Card({ title, text, places, type = 'culture', cardId, saved, onSave, query }) {
   const style = CARD_STYLE[type] || CARD_STYLE.culture;
-  const isSaved = saved?.has(cardId);
+  const hasPlaces = places && places.length > 0;
+  const isSaved = !hasPlaces && saved?.has(cardId);
 
   return (
-    <div className={`border-l-2 ${style.border} ${style.bg} rounded-r-lg px-3 py-2.5`}>
+    <div
+      className="rounded-xl px-3 py-2.5 border"
+      style={{ backgroundColor: style.cardBg, borderColor: style.cardBorder, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
+    >
       <div className="flex items-start justify-between gap-2">
-        <p className={`text-sm font-bold leading-snug ${style.title}`}>
+        <p className="text-sm font-bold leading-snug" style={{ color: style.title }}>
           <Highlight text={title} query={query} />
         </p>
-        {onSave && (
+        {!hasPlaces && onSave && (
           <button
             onClick={() => onSave(cardId)}
-            className={`shrink-0 mt-0.5 transition-colors ${isSaved ? 'text-amber-400' : 'text-slate-600 hover:text-slate-400'}`}
+            className="shrink-0 mt-0.5 transition-colors"
+            style={{ color: isSaved ? '#C04E1A' : '#D8CECA' }}
             aria-label={isSaved ? 'Unsave' : 'Save'}
           >
             <Star size={13} fill={isSaved ? 'currentColor' : 'none'} />
@@ -437,43 +474,48 @@ function Card({ title, text, places, type = 'culture', cardId, saved, onSave, qu
         )}
       </div>
       {text && (
-        <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
+        <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#6B6560' }}>
           <Highlight text={text} query={query} />
         </p>
       )}
-      {places && places.length > 0 && <PlacesList places={places} query={query} />}
+      {hasPlaces && <PlacesList places={places} query={query} cardId={cardId} saved={saved} onSave={onSave} />}
     </div>
   );
 }
 
 function WCCard({ title, text, places, cardId, saved, onSave }) {
-  const isSaved = saved?.has(cardId);
+  const hasPlaces = places && places.length > 0;
+  const isSaved = !hasPlaces && saved?.has(cardId);
   return (
-    <div className="border-l-2 border-l-amber-400 bg-amber-500/10 rounded-r-lg px-3 py-3">
+    <div
+      className="rounded-xl px-3 py-3 border"
+      style={{ backgroundColor: '#FDF5F0', borderColor: '#E8C0A0', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
+    >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-bold leading-snug text-amber-300">⚽ {title}</p>
-        {onSave && (
+        <p className="text-sm font-bold leading-snug" style={{ color: '#C04E1A' }}>⚽ {title}</p>
+        {!hasPlaces && onSave && (
           <button
             onClick={() => onSave(cardId)}
-            className={`shrink-0 mt-0.5 transition-colors ${isSaved ? 'text-amber-400' : 'text-slate-600 hover:text-slate-400'}`}
+            className="shrink-0 mt-0.5 transition-colors"
+            style={{ color: isSaved ? '#C04E1A' : '#D8CECA' }}
             aria-label={isSaved ? 'Unsave' : 'Save'}
           >
             <Star size={13} fill={isSaved ? 'currentColor' : 'none'} />
           </button>
         )}
       </div>
-      {text && <p className="text-xs text-amber-200/70 mt-0.5 leading-relaxed">{text}</p>}
-      {places && places.length > 0 && <PlacesList places={places} />}
+      {text && <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#8A5A2A' }}>{text}</p>}
+      {hasPlaces && <PlacesList places={places} cardId={cardId} saved={saved} onSave={onSave} />}
     </div>
   );
 }
 
-function OnYourDatesSection({ items, accentRing, cityId, saved, onSave }) {
+function OnYourDatesSection({ items, cityId, saved, onSave }) {
   return (
-    <div className={`bg-slate-800/50 border ${accentRing} rounded-xl p-3`}>
+    <div className="rounded-xl p-3 border" style={{ backgroundColor: '#F5F0E8', borderColor: '#E8E0D8' }}>
       <div className="flex items-center gap-2 mb-3">
-        <CalendarDays size={13} className="text-slate-400" />
-        <h3 className="text-xs font-semibold tracking-wider uppercase text-slate-400">On Your Dates</h3>
+        <CalendarDays size={13} style={{ color: '#6B6560' }} />
+        <h3 className="text-xs font-semibold tracking-wider uppercase" style={{ color: '#6B6560' }}>On Your Dates</h3>
       </div>
       <div className="grid gap-2">
         {items.map((item, i) => {
@@ -489,28 +531,16 @@ function OnYourDatesSection({ items, accentRing, cityId, saved, onSave }) {
 
 function HotelZoneCallout({ items, cityId, saved, onSave }) {
   return (
-    <div className="bg-slate-800/80 border border-orange-400/30 rounded-xl p-3">
+    <div className="rounded-xl p-3 border" style={{ backgroundColor: '#FBF7F4', borderColor: '#E8C8A0', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
       <div className="flex items-center gap-2 mb-3">
-        <Car size={13} className="text-orange-400" />
-        <h3 className="text-xs font-bold tracking-wider uppercase text-orange-400">Get out of the hotel zone</h3>
+        <Car size={13} style={{ color: '#7A4A3A' }} />
+        <h3 className="text-xs font-bold tracking-wider uppercase" style={{ color: '#7A4A3A' }}>Get out of the hotel zone</h3>
       </div>
       <div className="grid gap-2">
         {items.map((item, i) => {
           const cardId = `${cityId}:hotelZone:${i}`;
-          const isSaved = saved?.has(cardId);
           return (
-            <div key={i} className="border-l-2 border-l-orange-400 bg-slate-700/40 rounded-r-lg px-3 py-2">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-bold text-orange-300">{item.title}</p>
-                {onSave && (
-                  <button onClick={() => onSave(cardId)} className={`shrink-0 mt-0.5 transition-colors ${isSaved ? 'text-amber-400' : 'text-slate-600 hover:text-slate-400'}`}>
-                    <Star size={13} fill={isSaved ? 'currentColor' : 'none'} />
-                  </button>
-                )}
-              </div>
-              {item.text && <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{item.text}</p>}
-              {item.places && item.places.length > 0 && <PlacesList places={item.places} />}
-            </div>
+            <Card key={i} title={item.title} text={item.text} places={item.places} type="hotel" cardId={cardId} saved={saved} onSave={onSave} />
           );
         })}
       </div>
@@ -539,6 +569,19 @@ function SectionCards({ items, type, cityId, sectionKey, saved, onSave, query })
   );
 }
 
+function SectionDivider({ meta }) {
+  const Icon = meta.Icon;
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-2.5 rounded-lg"
+      style={{ backgroundColor: '#F5F0E8', border: '1px solid #E8E0D8' }}
+    >
+      <Icon size={14} style={{ color: meta.color }} />
+      <span className="text-sm font-semibold" style={{ color: '#1A1714' }}>{meta.label}</span>
+    </div>
+  );
+}
+
 function CityView({ city, activeTab, setActiveTab, saved, onSave }) {
   const accent = CITY_ACCENT[city.id] || CITY_ACCENT.vancouver;
   const sectionKeys = Object.keys(city.sections);
@@ -554,28 +597,37 @@ function CityView({ city, activeTab, setActiveTab, saved, onSave }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <div className="flex items-baseline justify-between flex-wrap gap-x-3 gap-y-1">
-          <h2 className={`text-xl sm:text-2xl font-bold ${accent.text}`} style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-            {city.label}
-          </h2>
-          <span className="text-xs text-slate-500 font-medium tracking-wide">{city.dates}</span>
+      {/* City header */}
+      <div className="flex flex-col gap-0.5">
+        <h2
+          className="text-3xl font-semibold leading-tight"
+          style={{ fontFamily: "'Cormorant Garant', Georgia, serif", color: accent.hex }}
+        >
+          {city.label}
+        </h2>
+        <hr style={{ borderColor: '#E8E0D8', margin: '8px 0 6px' }} />
+        <div className="flex items-center gap-3 flex-wrap text-xs" style={{ color: '#6B6560' }}>
+          <span className="flex items-center gap-1">
+            <Hotel size={11} className="shrink-0" />
+            {city.hotel}
+          </span>
+          {city.hotelNote && (
+            <span className="flex items-center gap-1" style={{ color: '#C04E1A' }}>
+              <AlertTriangle size={11} className="shrink-0" />
+              {city.hotelNote}
+            </span>
+          )}
+          <span style={{ color: '#A89E96' }}>{city.dates}</span>
         </div>
-        <p className="text-xs text-slate-500 flex items-center gap-1.5">
-          <Hotel size={11} className="shrink-0" /> {city.hotel}
-        </p>
-        {city.hotelNote && (
-          <p className="text-xs text-orange-400/80 flex items-center gap-1.5 mt-0.5">
-            <AlertTriangle size={11} className="shrink-0" /> {city.hotelNote}
-          </p>
-        )}
         {city.match && (
-          <div className="mt-1">
-            <div className="inline-flex items-center gap-1.5 bg-amber-500/15 border border-amber-400/50 rounded-full px-3 py-1 text-xs text-amber-300 font-medium">
-              <span>⚽</span>
-              <span>{city.match.teams}</span>
-              <span className="text-amber-500/60">·</span>
-              <span className="text-amber-200/80">{city.match.time}</span>
+          <div
+            className="mt-2 flex items-center gap-3 rounded-xl px-4 py-2.5 border"
+            style={{ backgroundColor: '#FDF0E0', borderColor: '#E8C880' }}
+          >
+            <span className="text-lg">⚽</span>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: '#8A5A2A' }}>{city.match.teams}</p>
+              <p className="text-xs" style={{ color: '#A89E96' }}>{city.match.venue} · {city.match.time}</p>
             </div>
           </div>
         )}
@@ -584,7 +636,6 @@ function CityView({ city, activeTab, setActiveTab, saved, onSave }) {
       {city.sections.dates && (
         <OnYourDatesSection
           items={city.sections.dates}
-          accentRing={accent.ring}
           cityId={city.id}
           saved={saved}
           onSave={onSave}
@@ -597,26 +648,42 @@ function CityView({ city, activeTab, setActiveTab, saved, onSave }) {
 
       {tabs.length > 0 && (
         <>
-          <div className="flex gap-1 overflow-x-auto scrollbar-hide -mx-1 px-1">
-            {tabs.map(key => {
-              const meta = SECTION_META[key];
-              if (!meta) return null;
-              const { Icon, label } = meta;
-              const isActive = currentTab === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setActiveTab(key)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                    isActive ? 'bg-slate-600 text-slate-100' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
-                  }`}
-                >
-                  <Icon size={12} />
-                  {label}
-                </button>
-              );
-            })}
+          {/* Sticky section tabs */}
+          <div
+            className="sticky top-[112px] z-10 py-2 -mx-4 px-4"
+            style={{ backgroundColor: '#FAF7F2' }}
+          >
+            <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+              {tabs.map(key => {
+                const meta = SECTION_META[key];
+                if (!meta) return null;
+                const { Icon, label, color } = meta;
+                const isActive = currentTab === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setActiveTab(key)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors"
+                    style={{
+                      backgroundColor: isActive ? '#FFFFFF' : 'transparent',
+                      border: isActive ? '1px solid #E8E0D8' : '1px solid transparent',
+                      color: isActive ? color : '#6B6560',
+                      fontWeight: isActive ? 600 : 500,
+                      boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                    }}
+                  >
+                    <Icon size={12} />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Section divider bar */}
+          {currentTab && SECTION_META[currentTab] && (
+            <SectionDivider meta={SECTION_META[currentTab]} />
+          )}
 
           <div>
             {currentTab && (
@@ -639,13 +706,16 @@ function CityView({ city, activeTab, setActiveTab, saved, onSave }) {
 function CheatSheet() {
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-lg font-bold text-slate-100" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+      <h2
+        className="text-lg font-bold"
+        style={{ fontFamily: "'Cormorant Garant', Georgia, serif", color: '#1A1714' }}
+      >
         Cheat Sheet — All Events
       </h2>
       <div className="overflow-x-auto -mx-1">
         <table className="w-full min-w-[480px] text-xs border-separate border-spacing-y-1">
           <thead>
-            <tr className="text-slate-500 uppercase tracking-wider text-[10px]">
+            <tr className="uppercase tracking-wider text-[10px]" style={{ color: '#A89E96' }}>
               <th className="text-left px-2 py-1 font-semibold">Date</th>
               <th className="text-left px-2 py-1 font-semibold">City</th>
               <th className="text-left px-2 py-1 font-semibold">Event</th>
@@ -655,14 +725,14 @@ function CheatSheet() {
             {CHEAT_SHEET.map((row, i) => {
               const isWC = row.type === 'wc';
               return (
-                <tr key={i} className={`rounded-lg ${isWC ? 'bg-amber-500/15' : i % 2 === 0 ? 'bg-slate-800/60' : 'bg-slate-800/30'}`}>
-                  <td className={`px-2 py-2 font-semibold whitespace-nowrap rounded-l-lg ${isWC ? 'text-amber-300' : 'text-slate-300'}`}>
+                <tr key={i} style={{ backgroundColor: isWC ? '#FDF5F0' : i % 2 === 0 ? '#FFFFFF' : '#F5F0E8' }}>
+                  <td className="px-2 py-2 font-semibold whitespace-nowrap rounded-l-lg" style={{ color: isWC ? '#C04E1A' : '#1A1714' }}>
                     {isWC && <span className="mr-1">⚽</span>}{row.date}
                   </td>
-                  <td className={`px-2 py-2 whitespace-nowrap ${isWC ? 'text-amber-200/70' : 'text-slate-500'}`}>{row.city}</td>
-                  <td className={`px-2 py-2 rounded-r-lg leading-relaxed ${isWC ? 'text-amber-200/90' : 'text-slate-400'}`}>
+                  <td className="px-2 py-2 whitespace-nowrap" style={{ color: isWC ? '#8A5A2A' : '#6B6560' }}>{row.city}</td>
+                  <td className="px-2 py-2 rounded-r-lg leading-relaxed" style={{ color: isWC ? '#8A5A2A' : '#6B6560' }}>
                     {row.event}
-                    {row.note && <span className="text-slate-500 italic ml-1">({row.note})</span>}
+                    {row.note && <span className="italic ml-1" style={{ color: '#A89E96' }}>({row.note})</span>}
                   </td>
                 </tr>
               );
@@ -670,9 +740,15 @@ function CheatSheet() {
           </tbody>
         </table>
       </div>
-      <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-500/30 inline-block" /> World Cup match</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-700 inline-block" /> Sport / local event</span>
+      <div className="flex items-center gap-3 text-xs mt-1" style={{ color: '#A89E96' }}>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded inline-block" style={{ backgroundColor: '#E8C0A0' }} />
+          World Cup match
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded inline-block" style={{ backgroundColor: '#E8E0D8' }} />
+          Sport / local event
+        </span>
       </div>
     </div>
   );
@@ -680,25 +756,15 @@ function CheatSheet() {
 
 function SavedView({ saved, onSave, navigate }) {
   const savedItems = useMemo(() => {
-    const items = [];
-    CITIES.forEach(city => {
-      Object.entries(city.sections).forEach(([sectionKey, sectionItems]) => {
-        if (!Array.isArray(sectionItems)) return;
-        sectionItems.forEach((item, idx) => {
-          const id = `${city.id}:${sectionKey}:${idx}`;
-          if (saved.has(id)) items.push({ city, sectionKey, item, idx, id });
-        });
-      });
-    });
-    return items;
+    return [...saved].map(lookupSavedItem).filter(Boolean);
   }, [saved]);
 
   if (savedItems.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500">
-        <Star size={32} className="text-slate-700" />
+      <div className="flex flex-col items-center justify-center py-20 gap-3" style={{ color: '#A89E96' }}>
+        <Star size={32} style={{ color: '#D8CECA' }} />
         <p className="text-sm">No saved items yet</p>
-        <p className="text-xs text-slate-600">Tap the star on any card to save it here</p>
+        <p className="text-xs" style={{ color: '#D8CECA' }}>Tap the star on any venue to save it here</p>
       </div>
     );
   }
@@ -712,7 +778,10 @@ function SavedView({ saved, onSave, navigate }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <h2 className="text-lg font-bold text-slate-100" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+      <h2
+        className="text-lg font-bold"
+        style={{ fontFamily: "'Cormorant Garant', Georgia, serif", color: '#1A1714' }}
+      >
         Saved — {savedItems.length} item{savedItems.length !== 1 ? 's' : ''}
       </h2>
       {Object.values(grouped).map(({ city, items }) => {
@@ -721,14 +790,49 @@ function SavedView({ saved, onSave, navigate }) {
           <div key={city.id}>
             <button
               onClick={() => navigate(city.id)}
-              className={`flex items-center gap-1.5 mb-2 ${accent.text} hover:opacity-80 transition-opacity`}
+              className="flex items-center gap-1.5 mb-2 hover:opacity-80 transition-opacity"
+              style={{ color: accent.hex }}
             >
-              <span className="text-sm font-bold" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>{city.label}</span>
+              <span className="text-sm font-bold" style={{ fontFamily: "'Cormorant Garant', Georgia, serif" }}>{city.label}</span>
               <ChevronRight size={14} />
             </button>
             <div className="grid gap-2">
-              {items.map(({ item, sectionKey, id }) => {
-                const type = sectionKey === 'sporting' ? 'sport' : sectionKey === 'hotelZone' ? 'hotel' : sectionKey;
+              {items.map(({ item, sectionKey, id, place, isPlace }) => {
+                if (isPlace) {
+                  return (
+                    <div
+                      key={id}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 border"
+                      style={{ backgroundColor: '#FFFFFF', borderColor: '#E8E0D8', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
+                    >
+                      <MapPin size={12} className="shrink-0" style={{ color: '#A89E96' }} />
+                      <div className="flex-1 min-w-0">
+                        <a
+                          href={mapsUrl(place.maps)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:opacity-70 transition-opacity"
+                        >
+                          <span className="text-sm font-medium" style={{ color: '#1A1714' }}>{place.name}</span>
+                          {place.detail && <span className="text-xs ml-1.5" style={{ color: '#A89E96' }}>{place.detail}</span>}
+                        </a>
+                        <p className="text-xs mt-0.5" style={{ color: '#A89E96' }}>
+                          {SECTION_META[sectionKey]?.label}
+                          {item.title && ` · ${item.title}`}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => onSave(id)}
+                        className="shrink-0 transition-colors"
+                        style={{ color: '#C04E1A' }}
+                        aria-label="Unsave"
+                      >
+                        <Star size={13} fill="currentColor" />
+                      </button>
+                    </div>
+                  );
+                }
+                const type = item.type || (sectionKey === 'sporting' ? 'sport' : sectionKey === 'hotelZone' ? 'hotel' : sectionKey);
                 return item.type === 'wc'
                   ? <WCCard key={id} title={item.title} text={item.text} places={item.places} cardId={id} saved={saved} onSave={onSave} />
                   : <Card key={id} title={item.title} text={item.text} places={item.places} type={type} cardId={id} saved={saved} onSave={onSave} />;
@@ -746,7 +850,7 @@ function SearchResults({ query, onNavigate }) {
 
   if (results.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-2 text-slate-500">
+      <div className="flex flex-col items-center justify-center py-20 gap-2" style={{ color: '#A89E96' }}>
         <p className="text-sm">No results for "{query}"</p>
       </div>
     );
@@ -761,16 +865,17 @@ function SearchResults({ query, onNavigate }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <p className="text-xs text-slate-500">{results.length} result{results.length !== 1 ? 's' : ''} for "{query}"</p>
+      <p className="text-xs" style={{ color: '#A89E96' }}>{results.length} result{results.length !== 1 ? 's' : ''} for "{query}"</p>
       {Object.values(grouped).map(({ city, results: cityResults }) => {
         const accent = CITY_ACCENT[city.id] || CITY_ACCENT.vancouver;
         return (
           <div key={city.id}>
             <button
               onClick={() => onNavigate(city.id)}
-              className={`flex items-center gap-1.5 mb-2 ${accent.text} hover:opacity-80 transition-opacity`}
+              className="flex items-center gap-1.5 mb-2 hover:opacity-80 transition-opacity"
+              style={{ color: accent.hex }}
             >
-              <span className="text-sm font-bold" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>{city.label}</span>
+              <span className="text-sm font-bold" style={{ fontFamily: "'Cormorant Garant', Georgia, serif" }}>{city.label}</span>
               <ChevronRight size={14} />
             </button>
             <div className="grid gap-2">
@@ -781,8 +886,8 @@ function SearchResults({ query, onNavigate }) {
                   <div key={`${city.id}:${sectionKey}:${idx}`} className="relative">
                     {meta && (
                       <div className="flex items-center gap-1 mb-1">
-                        <meta.Icon size={10} className="text-slate-600" />
-                        <span className="text-[10px] text-slate-600 uppercase tracking-wider">{meta.label}</span>
+                        <meta.Icon size={10} style={{ color: '#A89E96' }} />
+                        <span className="text-[10px] uppercase tracking-wider" style={{ color: '#A89E96' }}>{meta.label}</span>
                       </div>
                     )}
                     {item.type === 'wc'
@@ -818,7 +923,6 @@ export default function TripGuide() {
     const parse = () => {
       const hash = window.location.hash.replace('#', '');
       if (!hash) {
-        // Auto-nav to current trip city
         const today = new Date().toISOString().slice(0, 10);
         const current = CITIES.find(c => today >= c.startDate && today <= c.endDate);
         if (current) setActiveCity(current.id);
@@ -854,7 +958,6 @@ export default function TripGuide() {
   const goCheatSheet = () => { history.pushState(null, '', '#cheatsheet'); setShowCheatSheet(true); setShowSaved(false); setSearchQuery(''); setSearchOpen(false); };
   const goSaved      = () => { history.pushState(null, '', '#saved');      setShowSaved(true);  setShowCheatSheet(false); setSearchQuery(''); setSearchOpen(false); };
 
-  // Swipe to change city
   const handleTouchStart = e => { touchStartX.current = e.touches[0].clientX; };
   const handleTouchEnd = e => {
     if (touchStartX.current === null || showCheatSheet || showSaved || searchQuery) return;
@@ -866,7 +969,6 @@ export default function TripGuide() {
     touchStartX.current = null;
   };
 
-  // Auto-focus search input
   useEffect(() => {
     if (searchOpen && searchRef.current) searchRef.current.focus();
   }, [searchOpen]);
@@ -876,23 +978,29 @@ export default function TripGuide() {
   const isSearching = searchOpen && searchQuery.length > 0;
 
   return (
-    <div className="min-h-dvh bg-slate-900 text-slate-100 font-sans">
+    <div className="min-h-dvh" style={{ backgroundColor: '#FAF7F2', color: '#1A1714' }}>
       {/* HEADER */}
-      <header className="bg-slate-950 border-b border-slate-800 px-4 py-4 sticky top-0 z-30">
+      <header
+        className="sticky top-0 z-30 px-4 py-4 border-b"
+        style={{ backgroundColor: '#F5F0E8', borderColor: '#E8E0D8' }}
+      >
         <div className="max-w-2xl mx-auto">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <h1
-                className="text-lg sm:text-xl font-bold text-slate-100 leading-tight"
-                style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+                className="text-lg sm:text-xl font-semibold leading-tight"
+                style={{ fontFamily: "'Cormorant Garant', Georgia, serif", color: '#1A1714' }}
               >
                 World Cup 2026 Trip Guide
               </h1>
-              <p className="text-xs text-slate-500 mt-0.5">Pacific NW & Northern California · Socceroos Group Stage · 12–26 Jun</p>
+              <p className="text-xs mt-0.5" style={{ color: '#A89E96' }}>
+                Pacific NW & Northern California · Socceroos Group Stage · 12–26 Jun
+              </p>
             </div>
             <button
               onClick={() => { setSearchOpen(o => !o); setSearchQuery(''); }}
-              className="shrink-0 p-1.5 text-slate-500 hover:text-slate-300 transition-colors"
+              className="shrink-0 p-1.5 transition-colors hover:opacity-70"
+              style={{ color: '#A89E96' }}
               aria-label="Search"
             >
               {searchOpen ? <X size={18} /> : <Search size={18} />}
@@ -908,7 +1016,8 @@ export default function TripGuide() {
                 placeholder="Search venues, restaurants, activities…"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-slate-500"
+                className="w-full rounded-lg px-3 py-2 text-sm outline-none"
+                style={{ backgroundColor: '#FFFFFF', border: '1px solid #D8CECA', color: '#1A1714' }}
               />
             </div>
           )}
@@ -917,13 +1026,17 @@ export default function TripGuide() {
           {!searchOpen && (
             <div className="flex flex-wrap gap-1.5 mt-2.5">
               {HEADER_MATCHES.map((m, i) => (
-                <div key={i} className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 rounded-full px-2.5 py-1 text-[11px] text-amber-300 font-medium whitespace-nowrap">
+                <div
+                  key={i}
+                  className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap"
+                  style={{ backgroundColor: '#FDF0E0', border: '1px solid #E8C880', color: '#8A5A2A' }}
+                >
                   <span>⚽</span>
                   <span>{m.teams}</span>
-                  <span className="text-amber-500/40 mx-0.5">·</span>
-                  <span className="text-amber-400/70">{m.date}</span>
-                  <span className="text-amber-500/40 mx-0.5">·</span>
-                  <span className="text-amber-200 font-bold">{daysUntil(m.iso)}</span>
+                  <span className="mx-0.5" style={{ color: '#D8B870' }}>·</span>
+                  <span style={{ color: '#A89E96' }}>{m.date}</span>
+                  <span className="mx-0.5" style={{ color: '#D8B870' }}>·</span>
+                  <span className="font-bold" style={{ color: '#C04E1A' }}>{daysUntil(m.iso)}</span>
                 </div>
               ))}
             </div>
@@ -932,7 +1045,10 @@ export default function TripGuide() {
       </header>
 
       {/* CITY NAV */}
-      <nav className="bg-slate-900 border-b border-slate-800 sticky top-[var(--header-h,0)] z-20">
+      <nav
+        className="sticky top-[var(--header-h,0)] z-20 border-b"
+        style={{ backgroundColor: '#F5F0E8', borderColor: '#E8E0D8' }}
+      >
         <div className="max-w-2xl mx-auto">
           <div className="flex overflow-x-auto scrollbar-hide">
             {CITIES.map(c => {
@@ -942,26 +1058,48 @@ export default function TripGuide() {
                 <button
                   key={c.id}
                   onClick={() => navigate(c.id)}
-                  className={`flex-none px-3.5 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
-                    isActive ? `${accent.nav} ${accent.text}` : 'border-b-transparent text-slate-500 hover:text-slate-300'
-                  }`}
+                  className="flex-none px-3.5 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-colors"
+                  style={{
+                    color: isActive ? accent.hex : '#6B6560',
+                    borderBottomColor: isActive ? accent.hex : 'transparent',
+                  }}
                 >
-                  {c.label}{c.match && <span className="ml-1 text-amber-500">⚽</span>}
+                  {c.label}{c.match && <span className="ml-1" style={{ color: '#C04E1A' }}>⚽</span>}
                 </button>
               );
             })}
             <button
               onClick={goCheatSheet}
-              className={`flex-none px-3.5 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${showCheatSheet && !isSearching ? 'border-b-slate-400 text-slate-200' : 'border-b-transparent text-slate-500 hover:text-slate-300'}`}
+              className="flex-none px-3.5 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-colors"
+              style={{
+                color: showCheatSheet && !isSearching ? '#1A1714' : '#6B6560',
+                borderBottomColor: showCheatSheet && !isSearching ? '#1A1714' : 'transparent',
+              }}
             >
               📋 Cheat Sheet
             </button>
             <button
               onClick={goSaved}
-              className={`flex-none px-3.5 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-colors flex items-center gap-1 ${showSaved && !isSearching ? 'border-b-amber-400 text-amber-300' : 'border-b-transparent text-slate-500 hover:text-slate-300'}`}
+              className="flex-none px-3.5 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-colors flex items-center gap-1"
+              style={{
+                color: showSaved && !isSearching ? '#C04E1A' : '#6B6560',
+                borderBottomColor: showSaved && !isSearching ? '#C04E1A' : 'transparent',
+              }}
             >
-              <Star size={11} fill={savedCount > 0 ? 'currentColor' : 'none'} className={savedCount > 0 ? 'text-amber-400' : ''} />
-              Saved{savedCount > 0 && <span className="ml-0.5 bg-amber-500/20 text-amber-400 rounded-full px-1.5 text-[10px] font-bold">{savedCount}</span>}
+              <Star
+                size={11}
+                fill={savedCount > 0 ? 'currentColor' : 'none'}
+                style={{ color: savedCount > 0 ? '#C04E1A' : undefined }}
+              />
+              Saved
+              {savedCount > 0 && (
+                <span
+                  className="ml-0.5 rounded-full px-1.5 text-[10px] font-bold"
+                  style={{ backgroundColor: 'rgba(192,78,26,0.12)', color: '#C04E1A' }}
+                >
+                  {savedCount}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -994,7 +1132,7 @@ export default function TripGuide() {
         ) : null}
       </main>
 
-      <footer className="border-t border-slate-800 text-center py-4 text-xs text-slate-600">
+      <footer className="border-t text-center py-4 text-xs" style={{ borderColor: '#E8E0D8', color: '#A89E96' }}>
         Schedules current as of early June 2026 — confirm minor-league / WNBA times the week before.
       </footer>
     </div>
