@@ -1,15 +1,19 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, X, ChevronRight } from 'lucide-react';
 import useSavedCards from './hooks/useSavedCards';
+import usePlanItems  from './hooks/usePlanItems';
+import useTripUser   from './hooks/useTripUser';
 import {
-  CITIES, CITY_ACCENT, SECTION_META, TRIP_DAYS,
-  searchCards,
+  CITIES, CITY_ACCENT, SECTION_META, TRIP_DAYS, TRIP_START, TRIP_END,
+  searchCards, SYSTEM_PLAN_ITEMS,
 } from './data';
-import BottomNav    from './components/BottomNav';
-import NowScreen    from './components/NowScreen';
-import DaysScreen   from './components/DaysScreen';
-import ExploreScreen from './components/ExploreScreen';
-import SavedView    from './components/SavedView';
+import BottomNav      from './components/BottomNav';
+import NowScreen      from './components/NowScreen';
+import DaysScreen     from './components/DaysScreen';
+import ExploreScreen  from './components/ExploreScreen';
+import SavedView      from './components/SavedView';
+import NameSetupModal from './components/NameSetupModal';
+import AddEditSheet   from './components/AddEditSheet';
 import { Card, WCCard } from './components/shared/Card';
 
 // ─── SEARCH RESULTS (global overlay) ─────────────────────────────────────────
@@ -77,31 +81,65 @@ function SearchResults({ query, onNavigateToCity }) {
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
 
 export default function TripGuide() {
-  const [activeScreen, setActiveScreen]       = useState('now');
-  const [expandedDay, setExpandedDay]         = useState(null);
-  const [exploreFilter, setExploreFilter]     = useState('all');
+  // ── Existing state ────────────────────────────────────────────────────────
+  const [activeScreen, setActiveScreen]         = useState('now');
+  const [expandedDay, setExpandedDay]           = useState(null);
+  const [exploreFilter, setExploreFilter]       = useState('all');
   const [exploreCityScope, setExploreCityScope] = useState('all');
-  const [exploreSearch, setExploreSearch]     = useState('');
-  const [searchOpen, setSearchOpen]           = useState(false);
-  const [searchQuery, setSearchQuery]         = useState('');
-  const [saved, toggleSave]                   = useSavedCards();
-  const touchStartX                           = useRef(null);
-  const searchRef                             = useRef(null);
+  const [exploreSearch, setExploreSearch]       = useState('');
+  const [searchOpen, setSearchOpen]             = useState(false);
+  const [searchQuery, setSearchQuery]           = useState('');
+  const [saved, toggleSave]                     = useSavedCards();
+  const touchStartX                             = useRef(null);
+  const searchRef                               = useRef(null);
 
-  // ── Hash routing ─────────────────────────────────────────────────────────
+  // ── Plan feature state ────────────────────────────────────────────────────
+  const [daysTab, setDaysTab]               = useState('timeline');
+  const [activePlanDate, setActivePlanDate] = useState(() => {
+    const t = new Date().toISOString().slice(0, 10);
+    return (t >= TRIP_START && t <= TRIP_END) ? t : TRIP_START;
+  });
+  const [planSheetState, setPlanSheetState]       = useState(null);
+  const [nameSetupOpen, setNameSetupOpen]         = useState(false);
+  const [namePromptPending, setNamePromptPending] = useState(null);
+  const [undoSnackbar, setUndoSnackbar]           = useState(null);
+
+  // ── Hooks ─────────────────────────────────────────────────────────────────
+  const { name: userName, setName: setUserName } = useTripUser();
+  const {
+    itemsByDate, isOnline, addItem, updateItem, deleteItem, toggleDone,
+    pendingDeletes, undoDelete,
+  } = usePlanItems();
+
+  // ── Derived data ──────────────────────────────────────────────────────────
+  const systemItemsByDate = useMemo(() =>
+    SYSTEM_PLAN_ITEMS.reduce((map, item) => {
+      if (!map.has(item.date)) map.set(item.date, []);
+      map.get(item.date).push(item);
+      return map;
+    }, new Map()),
+  []);
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const todayPlanItems = useMemo(() => {
+    const SLOT_ORDER = { morning: 0, afternoon: 1, evening: 2, anytime: 3 };
+    const sys  = systemItemsByDate.get(today) ?? [];
+    const user = itemsByDate.get(today) ?? [];
+    return [...sys, ...user].sort((a, b) => (SLOT_ORDER[a.slot] ?? 3) - (SLOT_ORDER[b.slot] ?? 3));
+  }, [systemItemsByDate, itemsByDate, today]);
+
+  // ── Hash routing ──────────────────────────────────────────────────────────
   useEffect(() => {
     const parse = () => {
       const raw = window.location.hash.replace('#', '');
-      if (!raw) {
-        // Auto-detect current city during trip; otherwise default to 'now'
-        return;
-      }
-      // New routes
-      if (raw === 'now')     { setActiveScreen('now');    return; }
-      if (raw === 'days')    { setActiveScreen('days');   return; }
-      if (raw === 'explore') { setActiveScreen('explore'); return; }
-      if (raw === 'saved')   { setActiveScreen('saved');  return; }
-      if (raw === 'cheatsheet') { setActiveScreen('days'); return; } // legacy
+      if (!raw) return;
+      if (raw === 'now')        { setActiveScreen('now');    return; }
+      if (raw === 'days')       { setActiveScreen('days');   return; }
+      if (raw === 'explore')    { setActiveScreen('explore'); return; }
+      if (raw === 'saved')      { setActiveScreen('saved');  return; }
+      if (raw === 'plan')       { setActiveScreen('days'); setDaysTab('plan'); return; }
+      if (raw === 'cheatsheet') { setActiveScreen('days'); return; }
 
       if (raw.startsWith('days/')) {
         const iso = raw.slice(5);
@@ -110,15 +148,11 @@ export default function TripGuide() {
         if (idx >= 0) setExpandedDay(idx);
         return;
       }
-
       if (raw.startsWith('explore/')) {
-        const f = raw.slice(8);
         setActiveScreen('explore');
-        setExploreFilter(f);
+        setExploreFilter(raw.slice(8));
         return;
       }
-
-      // Legacy city hashes — navigate to days view, expand first day for that city
       const city = CITIES.find(c => c.id === raw);
       if (city) {
         const idx = TRIP_DAYS.findIndex(d => d.city?.id === raw);
@@ -131,10 +165,33 @@ export default function TripGuide() {
     return () => window.removeEventListener('popstate', parse);
   }, []);
 
-  // Focus search input when opened
   useEffect(() => {
     if (searchOpen && searchRef.current) searchRef.current.focus();
   }, [searchOpen]);
+
+  // ── Plan helpers ──────────────────────────────────────────────────────────
+  function guardName(action) {
+    if (!userName) {
+      setNamePromptPending(() => action);
+      setNameSetupOpen(true);
+    } else {
+      action();
+    }
+  }
+
+  function openAddSheet(prefill = {}) {
+    guardName(() => setPlanSheetState({ mode: 'add', initialValues: prefill }));
+  }
+
+  function openEditSheet(item) {
+    guardName(() => setPlanSheetState({ mode: 'edit', initialValues: item }));
+  }
+
+  function handleDeletePlanItem(item) {
+    deleteItem(item.id);
+    setUndoSnackbar({ id: item.id, title: item.title });
+    setTimeout(() => setUndoSnackbar(s => s?.id === item.id ? null : s), 5500);
+  }
 
   // ── Navigation ────────────────────────────────────────────────────────────
   function navigateTo(screen, extra) {
@@ -156,7 +213,7 @@ export default function TripGuide() {
     if (idx >= 0) setExpandedDay(idx);
   }
 
-  // ── Swipe gestures (between bottom nav tabs) ──────────────────────────────
+  // ── Swipe gestures ────────────────────────────────────────────────────────
   const SCREENS = ['now', 'days', 'explore', 'saved'];
   const handleTouchStart = e => { touchStartX.current = e.touches[0].clientX; };
   const handleTouchEnd = e => {
@@ -178,9 +235,22 @@ export default function TripGuide() {
   };
 
   const isSearching = searchOpen && searchQuery.length > 0;
-  const today = new Date().toISOString().slice(0, 10);
 
   const SCREEN_TITLES = { now: 'World Cup 2026', days: 'Trip Schedule', explore: 'Explore', saved: 'Saved' };
+
+  // ── Plan screen props bundle ───────────────────────────────────────────────
+  const planScreenProps = {
+    activePlanDate,
+    setActivePlanDate,
+    itemsByDate,
+    systemItemsByDate,
+    isOnline,
+    onEdit:       openEditSheet,
+    onDelete:     handleDeletePlanItem,
+    onToggleDone: toggleDone,
+    pendingDeletes,
+    onOpenSheet:  openAddSheet,
+  };
 
   return (
     <div className="min-h-dvh" style={{ backgroundColor: '#FAF7F2', color: '#1A1714' }}>
@@ -247,6 +317,8 @@ export default function TripGuide() {
                   navigateTo('days');
                   if (idx >= 0) setExpandedDay(idx);
                 }}
+                todayPlanItems={todayPlanItems}
+                onNavigatePlan={() => { navigateTo('days'); setDaysTab('plan'); }}
               />
             )}
             {activeScreen === 'days' && (
@@ -255,6 +327,10 @@ export default function TripGuide() {
                 setExpandedDay={setExpandedDay}
                 saved={saved}
                 onSave={toggleSave}
+                planTab={daysTab}
+                setPlanTab={setDaysTab}
+                planScreenProps={planScreenProps}
+                onAddToPlan={openAddSheet}
               />
             )}
             {activeScreen === 'explore' && (
@@ -267,6 +343,7 @@ export default function TripGuide() {
                 setSearchQuery={setExploreSearch}
                 saved={saved}
                 onSave={toggleSave}
+                onAddToPlan={openAddSheet}
               />
             )}
             {activeScreen === 'saved' && (
@@ -286,6 +363,53 @@ export default function TripGuide() {
         onChange={handleNavChange}
         savedCount={saved.size}
       />
+
+      {/* NAME SETUP MODAL */}
+      <NameSetupModal
+        open={nameSetupOpen}
+        onSave={(name) => {
+          setUserName(name);
+          setNameSetupOpen(false);
+          if (namePromptPending) {
+            namePromptPending();
+            setNamePromptPending(null);
+          }
+        }}
+        onClose={() => { setNameSetupOpen(false); setNamePromptPending(null); }}
+      />
+
+      {/* ADD / EDIT SHEET */}
+      <AddEditSheet
+        open={!!planSheetState}
+        mode={planSheetState?.mode}
+        initialValues={planSheetState?.initialValues}
+        onSave={(fields) => {
+          if (planSheetState.mode === 'edit') {
+            updateItem(planSheetState.initialValues.id, fields);
+          } else {
+            addItem({ ...fields, created_by_name: userName });
+          }
+          setPlanSheetState(null);
+        }}
+        onClose={() => setPlanSheetState(null)}
+      />
+
+      {/* UNDO SNACKBAR */}
+      {undoSnackbar && (
+        <div
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl px-4 py-3 shadow-lg"
+          style={{ backgroundColor: '#1A1714', color: '#FFFFFF', whiteSpace: 'nowrap' }}
+        >
+          <span className="text-sm">"{undoSnackbar.title}" deleted</span>
+          <button
+            onClick={() => { undoDelete(undoSnackbar.id); setUndoSnackbar(null); }}
+            className="text-sm font-bold transition-opacity hover:opacity-70"
+            style={{ color: '#F0C060' }}
+          >
+            Undo
+          </button>
+        </div>
+      )}
     </div>
   );
 }

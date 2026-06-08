@@ -2,8 +2,9 @@ import { useEffect, useRef } from 'react';
 import { ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { TRIP_DAYS, CITY_ACCENT } from '../data';
 import { CityFullContent } from './shared/Card';
+import PlanScreen from './PlanScreen';
 
-function DayCard({ tripDay, index, isExpanded, onToggle, saved, onSave }) {
+function DayCard({ tripDay, index, isExpanded, onToggle, saved, onSave, onAddToPlan }) {
   const { iso, formatted, city, cheatRow } = tripDay;
   const today = new Date().toISOString().slice(0, 10);
   const isPast    = iso < today;
@@ -29,7 +30,6 @@ function DayCard({ tripDay, index, isExpanded, onToggle, saved, onSave }) {
         borderLeftColor: isWC ? '#C04E1A' : isToday ? accent?.hex || '#E8E0D8' : '#E8E0D8',
       }}
     >
-      {/* Collapsed header — always visible */}
       <button
         onClick={() => onToggle(index)}
         className="w-full text-left px-4 py-3 flex items-start gap-3"
@@ -79,7 +79,6 @@ function DayCard({ tripDay, index, isExpanded, onToggle, saved, onSave }) {
         </div>
       </button>
 
-      {/* Expanded content */}
       {isExpanded && city && (
         <div className="px-4 pb-4 border-t" style={{ borderColor: '#E8E0D8' }}>
           <div className="pt-3 pb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" style={{ color: '#6B6560' }}>
@@ -97,40 +96,76 @@ function DayCard({ tripDay, index, isExpanded, onToggle, saved, onSave }) {
               </span>
             )}
           </div>
-          <CityFullContent city={city} saved={saved} onSave={onSave} />
+          <CityFullContent city={city} saved={saved} onSave={onSave} onAddToPlan={onAddToPlan} />
         </div>
       )}
     </div>
   );
 }
 
-export default function DaysScreen({ expandedDay, setExpandedDay, saved, onSave }) {
+export default function DaysScreen({
+  expandedDay, setExpandedDay, saved, onSave,
+  planTab, setPlanTab,
+  planScreenProps,
+  onAddToPlan,
+}) {
   function handleToggle(index) {
     setExpandedDay(prev => (prev === index ? null : index));
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <h2
-        className="text-lg font-bold mb-1"
-        style={{ fontFamily: "'Cormorant Garant', Georgia, serif", color: '#1A1714' }}
-      >
-        Trip Schedule
-      </h2>
-      {TRIP_DAYS.map((day, i) => (
-        <DayCard
-          key={day.iso}
-          tripDay={day}
-          index={i}
-          isExpanded={expandedDay === i}
-          onToggle={handleToggle}
-          saved={saved}
-          onSave={onSave}
-        />
-      ))}
-      <p className="text-xs text-center pt-2 pb-1" style={{ color: '#A89E96' }}>
-        Schedules current as of early June 2026 — confirm minor-league / WNBA times the week before.
-      </p>
+    <div className="flex flex-col gap-3">
+      {/* Timeline / Plan toggle */}
+      <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: '#E8E0D8' }}>
+        <button
+          onClick={() => setPlanTab('timeline')}
+          className="flex-1 py-2.5 text-sm font-medium transition-colors"
+          style={{
+            backgroundColor: planTab === 'timeline' ? '#C04E1A' : '#FFFFFF',
+            color: planTab === 'timeline' ? '#FFFFFF' : '#6B6560',
+          }}
+        >
+          Timeline
+        </button>
+        <button
+          onClick={() => setPlanTab('plan')}
+          className="flex-1 py-2.5 text-sm font-medium transition-colors"
+          style={{
+            backgroundColor: planTab === 'plan' ? '#C04E1A' : '#FFFFFF',
+            color: planTab === 'plan' ? '#FFFFFF' : '#6B6560',
+          }}
+        >
+          Plan
+        </button>
+      </div>
+
+      {planTab === 'plan' ? (
+        <PlanScreen {...planScreenProps} />
+      ) : (
+        <>
+          <h2
+            className="text-lg font-bold mb-1"
+            style={{ fontFamily: "'Cormorant Garant', Georgia, serif", color: '#1A1714' }}
+          >
+            Trip Schedule
+          </h2>
+          {TRIP_DAYS.map((day, i) => (
+            <DayCard
+              key={day.iso}
+              tripDay={day}
+              index={i}
+              isExpanded={expandedDay === i}
+              onToggle={handleToggle}
+              saved={saved}
+              onSave={onSave}
+              onAddToPlan={onAddToPlan}
+            />
+          ))}
+          <p className="text-xs text-center pt-2 pb-1" style={{ color: '#A89E96' }}>
+            Schedules current as of early June 2026 — confirm minor-league / WNBA times the week before.
+          </p>
+        </>
+      )}
     </div>
   );
 }

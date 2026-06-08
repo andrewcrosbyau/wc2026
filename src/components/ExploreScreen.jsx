@@ -18,8 +18,12 @@ const FILTER_TO_SECTION = {
   running: 'running',
 };
 
-function ExploreItem({ entry, isExpanded, onToggle, saved, onSave }) {
+function ExploreItem({ entry, isExpanded, onToggle, saved, onSave, onAddToPlan }) {
   const { cityLabel, sectionKey, item, cardId, cityId } = entry;
+  const cityStartDate = CITIES.find(c => c.id === cityId)?.startDate;
+  const withDate = onAddToPlan
+    ? (prefill) => onAddToPlan({ date: cityStartDate, ...prefill })
+    : undefined;
   const meta   = SECTION_META[sectionKey];
   const accent = CITY_ACCENT[cityId] || CITY_ACCENT.vancouver;
   const isSaved = saved?.has(cardId);
@@ -68,9 +72,9 @@ function ExploreItem({ entry, isExpanded, onToggle, saved, onSave }) {
         <div className="px-3 pb-3 border-t" style={{ borderColor: '#F0EBE6' }}>
           <div className="pt-2">
             {item.type === 'wc'
-              ? <WCCard title={item.title} text={item.text} places={item.places} cardId={cardId} saved={saved} onSave={onSave} />
+              ? <WCCard title={item.title} text={item.text} places={item.places} cardId={cardId} saved={saved} onSave={onSave} onAddToPlan={withDate} />
               : <Card title={item.title} text={item.text} places={item.places}
-                  type={item.type || sectionKey} cardId={cardId} saved={saved} onSave={onSave} />
+                  type={item.type || sectionKey} cardId={cardId} saved={saved} onSave={onSave} onAddToPlan={withDate} />
             }
           </div>
         </div>
@@ -79,7 +83,7 @@ function ExploreItem({ entry, isExpanded, onToggle, saved, onSave }) {
   );
 }
 
-export default function ExploreScreen({ filter, setFilter, cityScope, setCityScope, searchQuery, setSearchQuery, saved, onSave }) {
+export default function ExploreScreen({ filter, setFilter, cityScope, setCityScope, searchQuery, setSearchQuery, saved, onSave, onAddToPlan }) {
   const [expandedId, setExpandedId] = useState(null);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -215,6 +219,7 @@ export default function ExploreScreen({ filter, setFilter, cityScope, setCitySco
               onToggle={handleToggle}
               saved={saved}
               onSave={onSave}
+              onAddToPlan={onAddToPlan}
             />
           ))
         )}

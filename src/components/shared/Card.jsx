@@ -1,4 +1,4 @@
-import { MapPin, Star, ChevronRight, CalendarDays, Car } from 'lucide-react';
+import { MapPin, Star, ChevronRight, CalendarDays, Car, CalendarPlus } from 'lucide-react';
 import { CARD_STYLE, SECTION_META, mapsUrl } from '../../data';
 import Highlight from './Highlight';
 
@@ -45,7 +45,7 @@ export function PlacesList({ places, query, cardId, saved, onSave }) {
   );
 }
 
-export function Card({ title, text, places, type = 'culture', cardId, saved, onSave, query }) {
+export function Card({ title, text, places, type = 'culture', cardId, saved, onSave, query, onAddToPlan }) {
   const style = CARD_STYLE[type] || CARD_STYLE.culture;
   const hasPlaces = places && places.length > 0;
   const isSaved = !hasPlaces && saved?.has(cardId);
@@ -59,16 +59,28 @@ export function Card({ title, text, places, type = 'culture', cardId, saved, onS
         <p className="text-sm font-bold leading-snug" style={{ color: style.title }}>
           <Highlight text={title} query={query} />
         </p>
-        {!hasPlaces && onSave && (
-          <button
-            onClick={() => onSave(cardId)}
-            className="shrink-0 mt-0.5 transition-colors"
-            style={{ color: isSaved ? '#C04E1A' : '#D8CECA' }}
-            aria-label={isSaved ? 'Unsave' : 'Save'}
-          >
-            <Star size={13} fill={isSaved ? 'currentColor' : 'none'} />
-          </button>
-        )}
+        <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+          {onAddToPlan && (
+            <button
+              onClick={() => onAddToPlan({ title, category: type, source_card_id: cardId })}
+              className="transition-colors hover:opacity-70"
+              style={{ color: '#A89E96' }}
+              aria-label="Add to plan"
+            >
+              <CalendarPlus size={13} />
+            </button>
+          )}
+          {!hasPlaces && onSave && (
+            <button
+              onClick={() => onSave(cardId)}
+              className="transition-colors"
+              style={{ color: isSaved ? '#C04E1A' : '#D8CECA' }}
+              aria-label={isSaved ? 'Unsave' : 'Save'}
+            >
+              <Star size={13} fill={isSaved ? 'currentColor' : 'none'} />
+            </button>
+          )}
+        </div>
       </div>
       {text && (
         <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#6B6560' }}>
@@ -80,7 +92,7 @@ export function Card({ title, text, places, type = 'culture', cardId, saved, onS
   );
 }
 
-export function WCCard({ title, text, places, cardId, saved, onSave }) {
+export function WCCard({ title, text, places, cardId, saved, onSave, onAddToPlan }) {
   const hasPlaces = places && places.length > 0;
   const isSaved = !hasPlaces && saved?.has(cardId);
   return (
@@ -90,16 +102,28 @@ export function WCCard({ title, text, places, cardId, saved, onSave }) {
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-bold leading-snug" style={{ color: '#C04E1A' }}>⚽ {title}</p>
-        {!hasPlaces && onSave && (
-          <button
-            onClick={() => onSave(cardId)}
-            className="shrink-0 mt-0.5 transition-colors"
-            style={{ color: isSaved ? '#C04E1A' : '#D8CECA' }}
-            aria-label={isSaved ? 'Unsave' : 'Save'}
-          >
-            <Star size={13} fill={isSaved ? 'currentColor' : 'none'} />
-          </button>
-        )}
+        <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+          {onAddToPlan && (
+            <button
+              onClick={() => onAddToPlan({ title, category: 'wc', source_card_id: cardId })}
+              className="transition-colors hover:opacity-70"
+              style={{ color: '#A89E96' }}
+              aria-label="Add to plan"
+            >
+              <CalendarPlus size={13} />
+            </button>
+          )}
+          {!hasPlaces && onSave && (
+            <button
+              onClick={() => onSave(cardId)}
+              className="shrink-0 transition-colors"
+              style={{ color: isSaved ? '#C04E1A' : '#D8CECA' }}
+              aria-label={isSaved ? 'Unsave' : 'Save'}
+            >
+              <Star size={13} fill={isSaved ? 'currentColor' : 'none'} />
+            </button>
+          )}
+        </div>
       </div>
       {text && <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#8A5A2A' }}>{text}</p>}
       {hasPlaces && <PlacesList places={places} cardId={cardId} saved={saved} onSave={onSave} />}
@@ -107,7 +131,7 @@ export function WCCard({ title, text, places, cardId, saved, onSave }) {
   );
 }
 
-export function OnYourDatesSection({ items, cityId, saved, onSave }) {
+export function OnYourDatesSection({ items, cityId, saved, onSave, onAddToPlan }) {
   return (
     <div className="rounded-xl p-3 border" style={{ backgroundColor: '#F5F0E8', borderColor: '#E8E0D8' }}>
       <div className="flex items-center gap-2 mb-3">
@@ -118,15 +142,15 @@ export function OnYourDatesSection({ items, cityId, saved, onSave }) {
         {items.map((item, i) => {
           const cardId = `${cityId}:dates:${i}`;
           return item.type === 'wc'
-            ? <WCCard key={i} title={item.title} text={item.text} places={item.places} cardId={cardId} saved={saved} onSave={onSave} />
-            : <Card key={i} title={item.title} text={item.text} places={item.places} type={item.type} cardId={cardId} saved={saved} onSave={onSave} />;
+            ? <WCCard key={i} title={item.title} text={item.text} places={item.places} cardId={cardId} saved={saved} onSave={onSave} onAddToPlan={onAddToPlan} />
+            : <Card key={i} title={item.title} text={item.text} places={item.places} type={item.type} cardId={cardId} saved={saved} onSave={onSave} onAddToPlan={onAddToPlan} />;
         })}
       </div>
     </div>
   );
 }
 
-export function HotelZoneCallout({ items, cityId, saved, onSave }) {
+export function HotelZoneCallout({ items, cityId, saved, onSave, onAddToPlan }) {
   return (
     <div className="rounded-xl p-3 border" style={{ backgroundColor: '#FBF7F4', borderColor: '#E8C8A0', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
       <div className="flex items-center gap-2 mb-3">
@@ -137,7 +161,7 @@ export function HotelZoneCallout({ items, cityId, saved, onSave }) {
         {items.map((item, i) => {
           const cardId = `${cityId}:hotelZone:${i}`;
           return (
-            <Card key={i} title={item.title} text={item.text} places={item.places} type="hotel" cardId={cardId} saved={saved} onSave={onSave} />
+            <Card key={i} title={item.title} text={item.text} places={item.places} type="hotel" cardId={cardId} saved={saved} onSave={onSave} onAddToPlan={onAddToPlan} />
           );
         })}
       </div>
@@ -145,7 +169,7 @@ export function HotelZoneCallout({ items, cityId, saved, onSave }) {
   );
 }
 
-export function SectionCards({ items, type, cityId, sectionKey, saved, onSave, query }) {
+export function SectionCards({ items, type, cityId, sectionKey, saved, onSave, query, onAddToPlan }) {
   if (!items || items.length === 0) return null;
   return (
     <div className="grid gap-2">
@@ -160,6 +184,7 @@ export function SectionCards({ items, type, cityId, sectionKey, saved, onSave, q
           saved={saved}
           onSave={onSave}
           query={query}
+          onAddToPlan={onAddToPlan}
         />
       ))}
     </div>
@@ -179,17 +204,21 @@ export function SectionDivider({ meta }) {
   );
 }
 
-export function CityFullContent({ city, saved, onSave }) {
+export function CityFullContent({ city, saved, onSave, onAddToPlan }) {
   const sections = city.sections;
   const sectionKeys = Object.keys(sections).filter(k => k !== 'dates' && k !== 'hotelZone');
+  // Wrap onAddToPlan to pre-fill the city's start date
+  const withDate = onAddToPlan
+    ? (prefill) => onAddToPlan({ date: city.startDate, ...prefill })
+    : undefined;
 
   return (
     <div className="flex flex-col gap-4 pt-2">
       {sections.dates && (
-        <OnYourDatesSection items={sections.dates} cityId={city.id} saved={saved} onSave={onSave} />
+        <OnYourDatesSection items={sections.dates} cityId={city.id} saved={saved} onSave={onSave} onAddToPlan={withDate} />
       )}
       {sections.hotelZone && (
-        <HotelZoneCallout items={sections.hotelZone} cityId={city.id} saved={saved} onSave={onSave} />
+        <HotelZoneCallout items={sections.hotelZone} cityId={city.id} saved={saved} onSave={onSave} onAddToPlan={withDate} />
       )}
       {sectionKeys.map(key => {
         const meta = SECTION_META[key];
@@ -205,6 +234,7 @@ export function CityFullContent({ city, saved, onSave }) {
               sectionKey={key}
               saved={saved}
               onSave={onSave}
+              onAddToPlan={withDate}
             />
           </div>
         );

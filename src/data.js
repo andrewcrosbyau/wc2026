@@ -433,3 +433,26 @@ export const TRIP_DAYS = (() => {
   }
   return days;
 })();
+
+export function slotForTime(kickoffTime) {
+  const h = parseInt(kickoffTime.split(':')[0], 10);
+  if (h < 12) return 'morning';
+  if (h < 18) return 'afternoon';
+  return 'evening';
+}
+
+export const SYSTEM_PLAN_ITEMS = CHEAT_SHEET.map((row, i) => {
+  const city = row.type === 'wc' ? CITIES.find(c => c.id === row.cityId) : null;
+  const slot = city?.match?.kickoffTime ? slotForTime(city.match.kickoffTime) : 'anytime';
+  return {
+    id: `system:${row.iso}:${i}`,
+    date: row.iso,
+    slot,
+    title: row.event,
+    category: row.type === 'wc' ? 'wc' : 'sport',
+    is_system: true,
+    is_done: false,
+    created_by: 'system',
+    created_by_name: 'system',
+  };
+});

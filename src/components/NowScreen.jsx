@@ -5,6 +5,63 @@ import {
 } from '../data';
 import { Card, WCCard } from './shared/Card';
 
+// ─── TODAY'S PLAN ─────────────────────────────────────────────────────────────
+
+const SLOT_DISPLAY = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening', anytime: 'Anytime' };
+const SLOT_ORDER   = ['morning', 'afternoon', 'evening', 'anytime'];
+
+function TodaysPlanSection({ items, onNavigatePlan }) {
+  if (!items?.length) return null;
+  const grouped = SLOT_ORDER
+    .map(slot => ({ slot, items: items.filter(i => i.slot === slot) }))
+    .filter(g => g.items.length > 0);
+  if (!grouped.length) return null;
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#A89E96' }}>
+          Today's Plan
+        </p>
+        {onNavigatePlan && (
+          <button
+            onClick={onNavigatePlan}
+            className="text-xs flex items-center gap-0.5 hover:opacity-70 transition-opacity"
+            style={{ color: '#C04E1A' }}
+          >
+            Full plan <ChevronRight size={12} />
+          </button>
+        )}
+      </div>
+      <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#E8E0D8', backgroundColor: '#FFFFFF' }}>
+        {grouped.map(({ slot, items: slotItems }) => (
+          <div key={slot} className="px-3 py-2.5 border-b last:border-b-0" style={{ borderColor: '#F0EBE6' }}>
+            <p className="text-[9px] font-bold tracking-widest uppercase mb-1" style={{ color: '#A89E96' }}>
+              {SLOT_DISPLAY[slot]}
+            </p>
+            {slotItems.map((item, i) => (
+              <div key={i} className="flex items-center gap-1.5 py-0.5">
+                <span className="text-xs shrink-0">
+                  {item.category === 'wc' ? '⚽' : item.category === 'sport' ? '🏅' : item.category === 'food' ? '🍽' : item.category === 'running' ? '🏃' : '•'}
+                </span>
+                <p
+                  className="text-xs flex-1 leading-snug"
+                  style={{
+                    color: item.is_done ? '#A89E96' : '#1A1714',
+                    textDecoration: item.is_done ? 'line-through' : 'none',
+                  }}
+                >
+                  {item.title}
+                </p>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 function kickoffDatetime(matchDate, kickoffTime) {
@@ -206,7 +263,7 @@ function PreTripState({ onNavigateDays }) {
 
 // ─── NORMAL DAY STATE ─────────────────────────────────────────────────────────
 
-function NormalDayState({ city, onNavigateDays }) {
+function NormalDayState({ city, onNavigateDays, todayPlanItems, onNavigatePlan }) {
   const accent = CITY_ACCENT[city.id] || CITY_ACCENT.vancouver;
   const today = new Date();
   const formatted = today.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'long' });
@@ -230,6 +287,8 @@ function NormalDayState({ city, onNavigateDays }) {
           <p className="text-xs mt-0.5" style={{ color: '#C04E1A' }}>⚠️ {city.hotelNote}</p>
         )}
       </section>
+
+      <TodaysPlanSection items={todayPlanItems} onNavigatePlan={onNavigatePlan} />
 
       <section>
         <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: '#A89E96' }}>
@@ -259,12 +318,13 @@ function NormalDayState({ city, onNavigateDays }) {
 
 // ─── MATCH DAY STATE ──────────────────────────────────────────────────────────
 
-function MatchDayState({ city, match, onNavigateDays }) {
+function MatchDayState({ city, match, onNavigateDays, todayPlanItems, onNavigatePlan }) {
   const picks = getTopPicks(city, true);
 
   return (
     <div className="flex flex-col gap-5">
       <MatchDayHero match={match} />
+      <TodaysPlanSection items={todayPlanItems} onNavigatePlan={onNavigatePlan} />
 
       {picks.length > 0 && (
         <section>
@@ -318,7 +378,7 @@ function PostTripState() {
 
 // ─── NOW SCREEN ───────────────────────────────────────────────────────────────
 
-export default function NowScreen({ onNavigateDays }) {
+export default function NowScreen({ onNavigateDays, todayPlanItems, onNavigatePlan }) {
   const today = new Date().toISOString().slice(0, 10);
   const isPreTrip  = today < TRIP_START;
   const isPostTrip = today > TRIP_END;
@@ -330,10 +390,10 @@ export default function NowScreen({ onNavigateDays }) {
       {isPreTrip  && <PreTripState onNavigateDays={onNavigateDays} />}
       {isPostTrip && <PostTripState />}
       {!isPreTrip && !isPostTrip && currentCity && isMatchDay && (
-        <MatchDayState city={currentCity} match={currentCity.match} onNavigateDays={onNavigateDays} />
+        <MatchDayState city={currentCity} match={currentCity.match} onNavigateDays={onNavigateDays} todayPlanItems={todayPlanItems} onNavigatePlan={onNavigatePlan} />
       )}
       {!isPreTrip && !isPostTrip && currentCity && !isMatchDay && (
-        <NormalDayState city={currentCity} onNavigateDays={onNavigateDays} />
+        <NormalDayState city={currentCity} onNavigateDays={onNavigateDays} todayPlanItems={todayPlanItems} onNavigatePlan={onNavigatePlan} />
       )}
       {!isPreTrip && !isPostTrip && !currentCity && (
         <div className="py-12 text-center text-sm" style={{ color: '#A89E96' }}>
