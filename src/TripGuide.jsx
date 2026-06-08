@@ -9,7 +9,7 @@ import {
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 function mapsUrl(q) {
-  return `https://www.google.com/maps/search/?q=${q}`;
+  return `https://maps.google.com/?q=${encodeURIComponent(q.replace(/\+/g, ' '))}`;
 }
 
 function todayIso() {
