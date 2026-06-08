@@ -1,27 +1,138 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import {
+  MapPin, Star, Search, X, UtensilsCrossed, Landmark,
+  Footprints, Trophy, CalendarDays, Car, Hotel, AlertTriangle,
+  ChevronRight,
+} from 'lucide-react';
+import { supabase, getClientId } from './lib/supabase';
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+
+function daysUntil(isoDate) {
+  const diff = new Date(isoDate) - new Date(new Date().toDateString());
+  const d = Math.round(diff / 86400000);
+  if (d < 0)  return 'played';
+  if (d === 0) return 'today!';
+  if (d === 1) return 'tomorrow';
+  return `in ${d} days`;
+}
+
+function mapsUrl(q) {
+  return `https://www.google.com/maps/search/?q=${q}`;
+}
+
+function Highlight({ text, query }) {
+  if (!query) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-amber-400/30 text-amber-200 rounded px-0.5">{text.slice(idx, idx + query.length)}</mark>
+      {text.slice(idx + query.length)}
+    </>
+  );
+}
+
+// ─── SUPABASE HOOK ───────────────────────────────────────────────────────────
+
+function useSavedCards() {
+  const [saved, setSaved] = useState(new Set());
+  const clientId = useRef(getClientId());
+
+  useEffect(() => {
+    supabase
+      .from('saved_cards')
+      .select('card_id')
+      .eq('client_id', clientId.current)
+      .then(({ data }) => {
+        if (data) setSaved(new Set(data.map(r => r.card_id)));
+      });
+  }, []);
+
+  const toggle = (cardId) => {
+    setSaved(prev => {
+      const next = new Set(prev);
+      if (next.has(cardId)) {
+        next.delete(cardId);
+        supabase.from('saved_cards').delete()
+          .eq('client_id', clientId.current)
+          .eq('card_id', cardId);
+      } else {
+        next.add(cardId);
+        supabase.from('saved_cards').insert({ client_id: clientId.current, card_id: cardId });
+      }
+      return next;
+    });
+  };
+
+  return [saved, toggle];
+}
+
+// ─── ACCENT COLOURS PER CITY ─────────────────────────────────────────────────
+
+const CITY_ACCENT = {
+  vancouver:  { nav: 'border-b-emerald-400', text: 'text-emerald-400', ring: 'border-emerald-500/30', bg: 'bg-emerald-500/10' },
+  seattle1:   { nav: 'border-b-sky-400',     text: 'text-sky-400',     ring: 'border-sky-500/30',     bg: 'bg-sky-500/10' },
+  olympic:    { nav: 'border-b-teal-400',    text: 'text-teal-400',    ring: 'border-teal-500/30',    bg: 'bg-teal-500/10' },
+  seattle2:   { nav: 'border-b-sky-400',     text: 'text-sky-400',     ring: 'border-sky-500/30',     bg: 'bg-sky-500/10' },
+  portland:   { nav: 'border-b-rose-400',    text: 'text-rose-400',    ring: 'border-rose-500/30',    bg: 'bg-rose-500/10' },
+  craterlake: { nav: 'border-b-cyan-400',    text: 'text-cyan-400',    ring: 'border-cyan-500/30',    bg: 'bg-cyan-500/10' },
+  napa:       { nav: 'border-b-purple-400',  text: 'text-purple-400',  ring: 'border-purple-500/30',  bg: 'bg-purple-500/10' },
+  sf:         { nav: 'border-b-orange-400',  text: 'text-orange-400',  ring: 'border-orange-500/30',  bg: 'bg-orange-500/10' },
+};
+
+// ─── SECTION META ─────────────────────────────────────────────────────────────
+
+const SECTION_META = {
+  dates:     { label: 'Dates',       Icon: CalendarDays },
+  sporting:  { label: 'Sporting',    Icon: Trophy },
+  culture:   { label: 'Culture',     Icon: Landmark },
+  running:   { label: 'Running',     Icon: Footprints },
+  food:      { label: 'Food & Drink',Icon: UtensilsCrossed },
+  hotelZone: { label: 'Hotel Zone',  Icon: Car },
+};
+
+// ─── CARD STYLING ─────────────────────────────────────────────────────────────
+
+const CARD_STYLE = {
+  wc:      { border: 'border-l-amber-400',  title: 'text-amber-300',  bg: 'bg-amber-500/10' },
+  sport:   { border: 'border-l-green-500',  title: 'text-green-400',  bg: 'bg-slate-800/60' },
+  event:   { border: 'border-l-teal-400',   title: 'text-teal-400',   bg: 'bg-slate-800/60' },
+  note:    { border: 'border-l-slate-500',  title: 'text-slate-400',  bg: 'bg-slate-800/60' },
+  culture: { border: 'border-l-indigo-400', title: 'text-indigo-400', bg: 'bg-slate-800/60' },
+  running: { border: 'border-l-teal-400',   title: 'text-teal-400',   bg: 'bg-slate-800/60' },
+  food:    { border: 'border-l-amber-500',  title: 'text-amber-400',  bg: 'bg-slate-800/60' },
+  hotel:   { border: 'border-l-orange-400', title: 'text-orange-400', bg: 'bg-slate-800/60' },
+};
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
 
+const HEADER_MATCHES = [
+  { teams: 'Australia vs Türkiye', venue: 'BC Place · Vancouver', date: 'Sat 13 Jun', iso: '2026-06-13' },
+  { teams: 'USA vs Australia',     venue: 'Lumen Field · Seattle', date: 'Fri 19 Jun', iso: '2026-06-19' },
+  { teams: 'Paraguay vs Australia',venue: "Levi's Stadium · SF",   date: 'Thu 25 Jun', iso: '2026-06-25' },
+];
+
 const CHEAT_SHEET = [
-  { date: 'Fri 12 Jun', city: 'Vancouver',   event: 'Vancouver Canadians (High-A) at The Nat, eve', type: 'sport', note: 'confirm time' },
-  { date: 'Sat 13 Jun', city: 'Vancouver',   event: 'Australia vs Türkiye — BC Place, 9pm',          type: 'wc' },
-  { date: 'Sun 14 Jun', city: 'Seattle 1',   event: 'Tacoma Rainiers (AAA) vs Albuquerque, 1:35pm',  type: 'sport', note: 'only if arrive early' },
-  { date: 'Mon 15 Jun', city: 'Seattle 1',   event: 'Belgium vs Egypt — Lumen Field, 12pm (fan zone)', type: 'wc' },
-  { date: 'Tue 16 Jun', city: 'Olympic NP',  event: 'Port Angeles Lefties vs Bellingham, 6:35pm, Civic Field', type: 'sport' },
-  { date: 'Wed 17 Jun', city: 'Olympic NP',  event: 'Port Angeles Lefties vs Bellingham, 6:35pm, Civic Field', type: 'sport' },
-  { date: 'Thu 18 Jun', city: 'Seattle 2',   event: 'Mariners vs Baltimore, 1:10pm, T-Mobile Park',  type: 'sport', note: 'Everett AquaSox possible alt' },
-  { date: 'Fri 19 Jun', city: 'Seattle 2',   event: 'USA vs Australia — Lumen Field, 12pm  +  Mariners vs Boston, 7:10pm', type: 'wc' },
-  { date: 'Sat 20 Jun', city: 'Portland',    event: "Portland Pickles (WCL) Mom's Night  +  Portland Fire (WNBA) ~5:30pm", type: 'sport', note: 'confirm' },
-  { date: 'Tue 23 Jun', city: 'Napa',        event: 'Sacramento River Cats (AAA) vs Las Vegas, 6:45pm, Sutter Health Park', type: 'sport', note: '≈1 hr from Napa' },
-  { date: 'Thu 25 Jun', city: 'SF/South Bay', event: 'Giants vs Athletics — Oracle Park, 12:45pm  +  Paraguay vs Australia — Levi\'s, 7pm', type: 'wc' },
-  { date: 'Fri 26 Jun', city: 'SF/South Bay', event: 'Giants vs Braves 7:15pm  /  Valkyries (WNBA)  /  Oakland Ballers', type: 'sport', note: "likely too late for Will's flight" },
+  { date: 'Fri 12 Jun', city: 'Vancouver',    event: 'Vancouver Canadians (High-A) at The Nat, eve',                                   type: 'sport', note: 'confirm time' },
+  { date: 'Sat 13 Jun', city: 'Vancouver',    event: 'Australia vs Türkiye — BC Place, 9pm',                                           type: 'wc' },
+  { date: 'Sun 14 Jun', city: 'Seattle 1',    event: 'Tacoma Rainiers (AAA) vs Albuquerque, 1:35pm',                                   type: 'sport', note: 'only if arrive early' },
+  { date: 'Mon 15 Jun', city: 'Seattle 1',    event: 'Belgium vs Egypt — Lumen Field, 12pm (fan zone)',                                type: 'wc' },
+  { date: 'Tue 16 Jun', city: 'Olympic NP',   event: 'Port Angeles Lefties vs Bellingham, 6:35pm, Civic Field',                        type: 'sport' },
+  { date: 'Wed 17 Jun', city: 'Olympic NP',   event: 'Port Angeles Lefties vs Bellingham, 6:35pm, Civic Field',                        type: 'sport' },
+  { date: 'Thu 18 Jun', city: 'Seattle 2',    event: 'Mariners vs Baltimore, 1:10pm, T-Mobile Park',                                   type: 'sport', note: 'Everett AquaSox possible alt' },
+  { date: 'Fri 19 Jun', city: 'Seattle 2',    event: 'USA vs Australia — Lumen, 12pm  +  Mariners vs Boston, 7:10pm',                  type: 'wc' },
+  { date: 'Sat 20 Jun', city: 'Portland',     event: "Portland Pickles (WCL) Mom's Night  +  Portland Fire (WNBA) ~5:30pm",            type: 'sport', note: 'confirm' },
+  { date: 'Tue 23 Jun', city: 'Napa',         event: 'Sacramento River Cats (AAA) vs Las Vegas, 6:45pm, Sutter Health Park',           type: 'sport', note: '≈1 hr from Napa' },
+  { date: 'Thu 25 Jun', city: 'SF/South Bay', event: "Giants vs Athletics, Oracle Park, 12:45pm  +  Paraguay vs Australia, Levi's, 7pm", type: 'wc' },
+  { date: 'Fri 26 Jun', city: 'SF/South Bay', event: 'Giants vs Braves 7:15pm  /  Valkyries (WNBA)  /  Oakland Ballers',               type: 'sport', note: "likely too late for Will's flight" },
 ];
 
 const CITIES = [
   {
-    id: 'vancouver',
-    label: 'Vancouver',
-    dates: '12–14 Jun',
+    id: 'vancouver', label: 'Vancouver', dates: '12–14 Jun',
+    startDate: '2026-06-12', endDate: '2026-06-14',
     hotel: 'OPUS Vancouver, Yaletown',
     match: { teams: 'Australia vs Türkiye', venue: 'BC Place', time: 'Sat 13 Jun · 9pm' },
     sections: {
@@ -32,39 +143,35 @@ const CITIES = [
         { type: 'note',  title: 'BC Lions / Whitecaps / Bandits', text: 'BC Lions playing away. Whitecaps on the MLS break. Bandits clash with the 9pm match (~45 min to Langley) — skip this trip.' },
       ],
       sporting: [
-        { title: 'BC Place Tour + BC Sports Hall of Fame', text: 'Inside the stadium; good pre- or post-match addition.' },
-        { title: 'Kayak / SUP Rentals on False Creek', text: 'Multiple outfitters along the creek, walkable from Yaletown.' },
+        { title: 'BC Place Tour + BC Sports Hall of Fame', text: 'Inside the stadium; good pre- or post-match addition.', places: [{ name: 'BC Place', detail: 'Stadium tour + Hall of Fame', maps: 'BC+Place+Vancouver' }] },
+        { title: 'Kayak / SUP on False Creek', text: 'Multiple outfitters along the creek, walkable from Yaletown.', places: [{ name: 'Ecomarine Paddlesports', detail: 'False Creek rentals', maps: 'Ecomarine+Paddlesports+Vancouver' }] },
       ],
       culture: [
-        { title: 'Gastown & Chinatown', text: 'Cobblestone old town with the Steam Clock; Dr. Sun Yat-Sen Classical Garden.' },
-        { title: 'Granville Island Public Market', text: 'Aquabus across False Creek — food stalls, makers, buskers. Go before noon.' },
-        { title: 'Museum of Vancouver + Maritime Museum', text: 'Vanier Park cluster; easy half-day.' },
-        { title: 'Vancouver Art Gallery', text: 'Emily Carr and strong Indigenous art collections.' },
-        { title: 'Capilano Suspension Bridge / Grouse Mountain', text: 'North Shore, ~25 min — forest and views half-day.' },
-        { title: 'Bill Reid Gallery of Northwest Coast Art', text: 'Superb Haida / Indigenous art downtown; free on the first Friday afternoon of the month.' },
-        { title: 'VanDusen Botanical Garden', text: '55 acres near Queen Elizabeth Park — close to The Nat.' },
-        { title: 'The Polygon Gallery', text: 'North Van by the SeaBus — striking waterfront photography; pairs with Lonsdale Quay market.' },
+        { title: 'Gastown & Chinatown', places: [{ name: 'Gastown Steam Clock', detail: 'Cobblestone old town', maps: 'Gastown+Vancouver' }, { name: 'Dr. Sun Yat-Sen Classical Garden', detail: 'Chinatown', maps: 'Dr+Sun+Yat-Sen+Garden+Vancouver' }] },
+        { title: 'Granville Island Public Market', text: 'Aquabus across False Creek — food stalls, makers, buskers. Go before noon.', places: [{ name: 'Granville Island Public Market', detail: 'Take the Aquabus from Yaletown', maps: 'Granville+Island+Public+Market+Vancouver' }] },
+        { title: 'Museums — Vanier Park', places: [{ name: 'Museum of Vancouver', detail: 'Vanier Park', maps: 'Museum+of+Vancouver' }, { name: 'Vancouver Maritime Museum', detail: 'Vanier Park', maps: 'Vancouver+Maritime+Museum' }] },
+        { title: 'Art Galleries', places: [{ name: 'Vancouver Art Gallery', detail: 'Emily Carr, Indigenous art', maps: 'Vancouver+Art+Gallery' }, { name: 'Bill Reid Gallery', detail: 'Superb Haida/Indigenous art; free first Friday afternoons', maps: 'Bill+Reid+Gallery+Vancouver' }, { name: 'The Polygon Gallery', detail: 'North Van by SeaBus — pairs with Lonsdale Quay', maps: 'Polygon+Gallery+North+Vancouver' }] },
+        { title: 'Nature & Gardens', places: [{ name: 'Capilano Suspension Bridge', detail: 'North Shore, ~25 min', maps: 'Capilano+Suspension+Bridge+Vancouver' }, { name: 'Grouse Mountain', detail: 'Forest and views half-day', maps: 'Grouse+Mountain+Vancouver' }, { name: 'VanDusen Botanical Garden', detail: '55 acres near Queen Elizabeth Park', maps: 'VanDusen+Botanical+Garden+Vancouver' }] },
       ],
       running: [
         { title: 'Stanley Park Seawall', text: '~10km car-free loop, ocean + old-growth forest. Reach it via the False Creek seawall straight from Yaletown.' },
         { title: 'False Creek Loop', text: 'Out the door for a shorter, flat outing.' },
       ],
       food: [
-        { title: 'Pacific NW Seafood', text: 'The Vancouver Fish Company and Cardero\'s (Coal Harbour patio) — sablefish, spot prawns, oysters.' },
-        { title: 'Yaletown (walkable)', text: 'Oshi Nori (handroll sushi), Elisa (steak), Dovetail (lively modern), Brix & Mortar.' },
-        { title: 'Granville Island', text: 'Graze the market: BC oysters, smoked salmon, local cheese.' },
+        { title: 'Pacific NW Seafood', places: [{ name: 'The Vancouver Fish Company', detail: 'Granville Island', maps: 'Vancouver+Fish+Company' }, { name: "Cardero's", detail: 'Coal Harbour patio — sablefish, spot prawns', maps: "Cardero's+Restaurant+Vancouver" }] },
+        { title: 'Yaletown (walkable)', places: [{ name: 'Oshi Nori', detail: 'Handroll sushi', maps: 'Oshi+Nori+Vancouver' }, { name: 'Elisa', detail: 'Steak', maps: 'Elisa+Restaurant+Vancouver' }, { name: 'Dovetail', detail: 'Lively modern dining', maps: 'Dovetail+Restaurant+Yaletown' }, { name: 'Brix & Mortar', detail: 'Wine bar + small plates', maps: 'Brix+and+Mortar+Vancouver' }] },
+        { title: 'Granville Island Market', text: 'Graze the stalls: BC oysters, smoked salmon, local cheese.' },
         { title: 'Richmond (~25 min)', text: 'Some of the best Chinese food outside Asia — worth a dim sum or night-market detour.' },
-        { title: 'Ramen / Izakaya', text: 'Tonkotsu Ramen Tsukiya (West End, tiny, superb broth), Menya Raizo (Broadway), Oku Izakaya (Gastown, sake + sushi).' },
-        { title: 'Indian', text: 'Desi Indian Lounge and Bahubali Biryani House (both downtown); Hyderabad Haveli (Kingsway) for late-night biryani.' },
-        { title: 'Main St / Mount Pleasant', text: 'Uber ~10 min: The Farmhouse (rustic Italian), Mount Pleasant Vintage (open-fire kitchen), The Watson (excellent cocktail bar).' },
-        { title: 'Bars — Gastown', text: 'Guilt & Co (live music basement), Arcana (theatrical cocktails), Clough Club, Pourhouse.' },
+        { title: 'Ramen & Izakaya', places: [{ name: 'Tonkotsu Ramen Tsukiya', detail: 'West End, tiny, superb broth', maps: 'Tsukiya+Ramen+Vancouver' }, { name: 'Menya Raizo', detail: 'Broadway', maps: 'Menya+Raizo+Vancouver' }, { name: 'Oku Izakaya', detail: 'Gastown, sake + sushi', maps: 'Oku+Izakaya+Vancouver' }] },
+        { title: 'Indian', places: [{ name: 'Desi Indian Lounge', detail: 'Downtown', maps: 'Desi+Indian+Lounge+Vancouver' }, { name: 'Bahubali Biryani House', detail: 'Downtown', maps: 'Bahubali+Biryani+House+Vancouver' }, { name: 'Hyderabad Haveli', detail: 'Kingsway · late-night biryani', maps: 'Hyderabad+Haveli+Vancouver' }] },
+        { title: 'Main St / Mount Pleasant (Uber ~10 min)', places: [{ name: 'The Farmhouse', detail: 'Rustic Italian', maps: 'Farmhouse+Restaurant+Vancouver' }, { name: 'Mount Pleasant Vintage', detail: 'Open-fire kitchen', maps: 'Mount+Pleasant+Vintage+Vancouver' }, { name: 'The Watson', detail: 'Excellent cocktail bar', maps: 'The+Watson+Vancouver' }] },
+        { title: 'Bars — Gastown', places: [{ name: 'Guilt & Co', detail: 'Live music basement', maps: 'Guilt+and+Co+Vancouver' }, { name: 'Arcana', detail: 'Theatrical cocktails', maps: 'Arcana+Cocktails+Vancouver' }, { name: 'Clough Club', detail: 'Gastown bar', maps: 'Clough+Club+Vancouver' }, { name: 'Pourhouse', detail: 'Classic Gastown bar', maps: 'Pourhouse+Vancouver' }] },
       ],
     },
   },
   {
-    id: 'seattle1',
-    label: 'Seattle 1',
-    dates: '14–16 Jun',
+    id: 'seattle1', label: 'Seattle 1', dates: '14–16 Jun',
+    startDate: '2026-06-14', endDate: '2026-06-16',
     hotel: 'Fairfield by Marriott Downtown / Seattle Center',
     match: { teams: 'Belgium vs Egypt', venue: 'Lumen Field', time: 'Mon 15 Jun · 12pm', note: 'fan zone day' },
     sections: {
@@ -72,79 +179,70 @@ const CITIES = [
         { type: 'wc',    title: 'Belgium vs Egypt — Lumen Field, 12pm (fan zone)', text: 'Official FIFA fan celebration at Seattle Center — basically next to your hotel.' },
         { type: 'sport', title: 'Seattle Storm (WNBA) — Climate Pledge Arena', text: '5-minute walk from the hotel. Check for a home game on the 14th/15th at climatepledgearena.com — the easiest sporting add of the trip.' },
         { type: 'note',  title: 'Mariners Away', text: 'Away until June 15; homestand starts the 16th (your departure day) — no MLB this round.' },
-        { type: 'sport', title: 'Tacoma Rainiers (AAA) — Sun 14, 1:35pm', text: 'vs Albuquerque, ~35 min south — but it\'s your bus-arrival day, so only if you land early.' },
+        { type: 'sport', title: 'Tacoma Rainiers (AAA) — Sun 14, 1:35pm', text: "vs Albuquerque, ~35 min south — but it's your bus-arrival day, so only if you land early." },
       ],
       culture: [
-        { title: 'Pike Place Market', text: 'Go early — before the crowds arrive.' },
-        { title: 'Chihuly Garden and Glass + Space Needle', text: 'Right by your hotel at Seattle Center.' },
-        { title: 'Museum of Pop Culture (MoPOP)', text: 'Hendrix/Nirvana, sci-fi and horror props, the guitar tower — also at Seattle Center.' },
-        { title: 'MOHAI on Lake Union', text: 'Best city-history museum.' },
-        { title: 'Smith Tower Speakeasy', text: 'Observation bar in Pioneer Square.' },
-        { title: 'Underground Tour', text: 'Pioneer Square — the buried original city; great rainy-hour option.' },
-        { title: 'Frye Art Museum', text: 'First Hill — small, excellent, and free.' },
-        { title: 'Ballard Locks (Hiram M. Chittenden)', text: 'Watch boats lift between sea and lake, plus a salmon-ladder viewing window. Pairs with a Ballard dinner.' },
+        { title: 'Seattle Center (by your hotel)', places: [{ name: 'Chihuly Garden and Glass', detail: 'Unmissable glass art', maps: 'Chihuly+Garden+and+Glass+Seattle' }, { name: 'Space Needle', detail: 'Observation deck', maps: 'Space+Needle+Seattle' }, { name: 'Museum of Pop Culture (MoPOP)', detail: 'Hendrix/Nirvana, sci-fi props, guitar tower', maps: 'MoPOP+Seattle' }] },
+        { title: 'Pioneer Square', places: [{ name: 'Pike Place Market', detail: 'Go early', maps: 'Pike+Place+Market+Seattle' }, { name: 'Smith Tower Speakeasy', detail: 'Observation bar', maps: 'Smith+Tower+Seattle' }, { name: 'Underground Tour', detail: 'The buried original city', maps: 'Underground+Tour+Seattle' }] },
+        { title: 'Neighbourhoods & Museums', places: [{ name: 'MOHAI', detail: 'Lake Union — best city-history museum', maps: 'MOHAI+Seattle' }, { name: 'Frye Art Museum', detail: 'First Hill — free, excellent', maps: 'Frye+Art+Museum+Seattle' }, { name: 'Ballard Locks', detail: 'Boats lift between sea and lake + salmon ladder', maps: 'Ballard+Locks+Seattle' }] },
       ],
       running: [
         { title: 'Elliott Bay Trail / Myrtle Edwards Park', text: 'From the Olympic Sculpture Park (5 min away) — flat waterfront, Puget Sound views, the signature Seattle run.' },
         { title: 'Kerry Park (Queen Anne)', text: 'Add for the skyline-postcard hill.' },
       ],
       food: [
-        { title: 'Oysters / Seafood', text: 'Taylor Shellfish (Pioneer Square), The Walrus and the Carpenter (Ballard), Local Tide (Fremont, crab roll).' },
-        { title: 'Capitol Hill', text: 'Kedai Makan (Malaysian), Terra Plata (rooftop).' },
-        { title: 'Chinatown–International District', text: 'E-Jae Pak Mor (modern Thai rice-noodle rolls), Tendon Kohaku (tempura/katsu), Tai Tung (historic Cantonese — Bruce Lee\'s old haunt).' },
-        { title: 'Ballard Dinners', text: 'Fuego (Salvadoran/Mexican in an old firehouse) and Brimmer & Heeltap (seasonal bistro), near the Locks.' },
-        { title: 'Special Occasion', text: 'Canlis (iconic Lake Union fine-diner — book well ahead) or Archipelago (intimate Filipino tasting menu, Columbia City).' },
-        { title: 'Coffee', text: 'Lighthouse Roasters (Fremont) or Black Arrows (near hotel).' },
-        { title: 'Bars', text: 'Majnoon (Queen Anne, near hotel, rare agave list), Paper Fan (Capitol Hill speakeasy).' },
+        { title: 'Oysters & Seafood', places: [{ name: 'Taylor Shellfish', detail: 'Pioneer Square', maps: 'Taylor+Shellfish+Pioneer+Square+Seattle' }, { name: 'The Walrus and the Carpenter', detail: 'Ballard', maps: 'Walrus+and+the+Carpenter+Seattle' }, { name: 'Local Tide', detail: 'Fremont · crab roll', maps: 'Local+Tide+Fremont+Seattle' }] },
+        { title: 'Capitol Hill', places: [{ name: 'Kedai Makan', detail: 'Malaysian', maps: 'Kedai+Makan+Seattle' }, { name: 'Terra Plata', detail: 'Rooftop', maps: 'Terra+Plata+Seattle' }] },
+        { title: 'Chinatown–International District', places: [{ name: 'E-Jae Pak Mor', detail: 'Modern Thai rice-noodle rolls', maps: 'E-Jae+Pak+Mor+Seattle' }, { name: 'Tendon Kohaku', detail: 'Tempura/katsu', maps: 'Tendon+Kohaku+Seattle' }, { name: 'Tai Tung', detail: "Historic Cantonese — Bruce Lee's old haunt", maps: 'Tai+Tung+Restaurant+Seattle' }] },
+        { title: 'Ballard Dinners', places: [{ name: 'Fuego', detail: 'Salvadoran/Mexican in an old firehouse', maps: 'Fuego+Cocina+Ballard+Seattle' }, { name: 'Brimmer & Heeltap', detail: 'Seasonal bistro, near the Locks', maps: 'Brimmer+and+Heeltap+Seattle' }] },
+        { title: 'Special Occasion', places: [{ name: 'Canlis', detail: 'Iconic Lake Union fine-diner — book well ahead', maps: 'Canlis+Restaurant+Seattle' }, { name: 'Archipelago', detail: 'Intimate Filipino tasting menu, Columbia City', maps: 'Archipelago+Restaurant+Seattle' }] },
+        { title: 'Coffee & Bars', places: [{ name: 'Lighthouse Roasters', detail: 'Fremont', maps: 'Lighthouse+Roasters+Seattle' }, { name: 'Black Arrows', detail: 'Near hotel', maps: 'Black+Arrows+Coffee+Seattle' }, { name: 'Majnoon', detail: 'Queen Anne, near hotel, rare agave list', maps: 'Majnoon+Seattle' }, { name: 'Paper Fan', detail: 'Capitol Hill speakeasy', maps: 'Paper+Fan+Seattle' }] },
       ],
     },
   },
   {
-    id: 'olympic',
-    label: 'Olympic NP',
-    dates: '16–18 Jun',
+    id: 'olympic', label: 'Olympic NP', dates: '16–18 Jun',
+    startDate: '2026-06-16', endDate: '2026-06-18',
     hotel: 'Olympic Lodge by Ayres, Port Angeles',
     sections: {
       dates: [
-        { type: 'sport', title: 'Port Angeles Lefties (WCL) — Tue 16 & Wed 17, 6:35pm', text: 'vs Bellingham Bells at Civic Field. Perfect small-town evening after the trails — cheap tickets, sunset over the Strait, mascot Timber the Olympic Marmot.' },
+        { type: 'sport', title: 'Port Angeles Lefties (WCL) — Tue 16 & Wed 17, 6:35pm', text: 'vs Bellingham Bells at Civic Field. Perfect small-town evening after the trails — cheap tickets, sunset over the Strait, mascot Timber the Olympic Marmot.', places: [{ name: 'Civic Field, Port Angeles', detail: 'West Coast League collegiate ball', maps: 'Civic+Field+Port+Angeles' }] },
         { type: 'note',  title: 'The Wilderness Reset', text: 'The park is the main event. Thursday the 18th is your drive-back day.' },
       ],
       culture: [
-        { title: 'Hurricane Ridge', text: '~40 min up — alpine meadows, Olympic Mountain panoramas. Go on your clearest morning.' },
-        { title: 'Lake Crescent', text: 'Marymere Falls (easy 1.5mi) and Mt. Storm King (steep scramble, ropes near top, huge payoff).' },
-        { title: 'Hoh Rain Forest', text: '~2 hr drive — Hall of Mosses loop; otherworldly. Long but worthwhile full day.' },
-        { title: 'Sol Duc Falls + Coastal Beaches', text: 'Sol Duc Falls; Rialto / Ruby Beach for Pacific sea stacks if you swing coastward.' },
-        { title: 'Sequim Lavender Farms', text: '~20 min east (e.g. Purple Haze) — fields start blooming in June; easy, fragrant detour with lavender lemonade.' },
+        { title: 'Hurricane Ridge', text: '~40 min up from Port Angeles. Go on your clearest morning.', places: [{ name: 'Hurricane Ridge', detail: 'Alpine meadows, Olympic Mountain panoramas', maps: 'Hurricane+Ridge+Olympic+National+Park' }] },
+        { title: 'Lake Crescent', places: [{ name: 'Marymere Falls Trail', detail: 'Easy 1.5mi', maps: 'Marymere+Falls+Olympic+National+Park' }, { name: 'Mt. Storm King', detail: 'Steep scramble, ropes near top, huge payoff', maps: 'Mt+Storm+King+Olympic+National+Park' }] },
+        { title: 'Hoh Rain Forest', text: '~2 hr drive — Hall of Mosses loop; otherworldly. Long but worthwhile full day.', places: [{ name: 'Hall of Mosses', detail: 'Hoh Rain Forest, Olympic NP', maps: 'Hall+of+Mosses+Hoh+Rain+Forest' }] },
+        { title: 'Other Highlights', places: [{ name: 'Sol Duc Falls', detail: 'Easy trail', maps: 'Sol+Duc+Falls+Olympic+National+Park' }, { name: 'Rialto Beach', detail: 'Pacific sea stacks', maps: 'Rialto+Beach+Olympic+National+Park' }, { name: 'Ruby Beach', detail: 'Dramatic coastline', maps: 'Ruby+Beach+Olympic+National+Park' }, { name: 'Purple Haze Lavender', detail: 'Sequim, ~20 min east · starts blooming June', maps: 'Purple+Haze+Lavender+Farm+Sequim' }] },
       ],
       running: [
         { title: 'Olympic Discovery Trail', text: 'Paved waterfront/forest path through Port Angeles, flat, right by the lodge.' },
-        { title: 'Hurricane Hill Trail', text: 'Alpine hike-run once you\'ve driven up — altitude is noticeable.' },
+        { title: 'Hurricane Hill Trail', text: "Alpine hike-run once you've driven up — altitude is noticeable." },
       ],
       food: [
         { title: 'Dungeness Crab', text: 'The local catch — look for it around the harbor.' },
-        { title: 'Dinners in Town', text: 'Next Door Gastropub, Kokopelli Grill (downtown Port Angeles); Barhop Brewing for a local pint.' },
+        { title: 'Port Angeles Dinners', places: [{ name: 'Next Door Gastropub', detail: 'Downtown', maps: 'Next+Door+Gastropub+Port+Angeles' }, { name: 'Kokopelli Grill', detail: 'Downtown', maps: 'Kokopelli+Grill+Port+Angeles' }, { name: 'Barhop Brewing', detail: 'Local pint', maps: 'Barhop+Brewing+Port+Angeles' }] },
         { title: 'Pro Tip', text: 'Stock the car with coffee and snacks in town — services inside the park are sparse and signal is patchy.' },
       ],
     },
   },
   {
-    id: 'seattle2',
-    label: 'Seattle 2',
-    dates: '18–20 Jun',
+    id: 'seattle2', label: 'Seattle 2', dates: '18–20 Jun',
+    startDate: '2026-06-18', endDate: '2026-06-20',
     hotel: 'Four Points by Sheraton Seattle Airport South',
     hotelNote: 'Airport-strip hotel — nothing good is walkable here. Uber out.',
     match: { teams: 'USA vs Australia', venue: 'Lumen Field', time: 'Fri 19 Jun · 12pm' },
     sections: {
       dates: [
-        { type: 'sport', title: 'Mariners vs Baltimore — Thu 18, 1:10pm, T-Mobile Park', text: 'Day game slots perfectly into your open day — a better fit than the AquaSox (~30 min north).' },
-        { type: 'wc',    title: 'USA vs Australia — Lumen Field, Fri 19, 12pm', text: 'Your match. Bonus: Mariners vs Boston at 7:10pm the same night — a noon WC match + evening MLB is very doable if you\'ve got the legs.' },
-        { type: 'sport', title: 'Mariners vs Boston Doubleheader — Sat 20', text: 'Scheduled because of Friday\'s WC match. You\'re driving to Portland, so likely a pass.' },
+        { type: 'sport', title: 'Mariners vs Baltimore — Thu 18, 1:10pm, T-Mobile Park', text: 'Day game slots perfectly into your open day.', places: [{ name: 'T-Mobile Park', detail: 'Downtown Seattle', maps: 'T-Mobile+Park+Seattle' }] },
+        { type: 'wc',    title: 'USA vs Australia — Lumen Field, Fri 19, 12pm', text: "Your match. Bonus: Mariners vs Boston at 7:10pm the same night — a noon WC match + evening MLB double is very doable if you've got the legs." },
+        { type: 'sport', title: 'Mariners vs Boston Doubleheader — Sat 20', text: "Scheduled because of Friday's WC match. You're driving to Portland, so likely a pass." },
         { type: 'note',  title: 'Everett AquaSox (High-A)', text: '~35 min north — may be home on the 18th. Confirm at milb.com/everett.' },
       ],
       hotelZone: [
-        { title: 'Georgetown (~10 min Uber)', text: 'Kuma Kitchen + Bar (Pan-Asian), 1988 Cocktail Lounge (tiny, excellent), Star Brass Works (late-night, cheap burgers).' },
-        { title: 'Columbia City (~15 min)', text: 'Marination (Hawaiian-Korean), Curry\'s Culture (Indian), Black & Tan Hall (Black-owned music venue + food).' },
-        { title: 'West Seattle / Alki Beach (~15 min)', text: 'Driftwood (farm-to-table, superb), Il Nido (Italian), Otter on the Rocks (cocktails).' },
+        { title: 'Georgetown (~10 min)', places: [{ name: 'Kuma Kitchen + Bar', detail: 'Pan-Asian', maps: 'Kuma+Kitchen+Georgetown+Seattle' }, { name: '1988 Cocktail Lounge', detail: 'Tiny, excellent', maps: '1988+Cocktail+Lounge+Georgetown+Seattle' }, { name: 'Star Brass Works', detail: 'Late-night, cheap burgers', maps: 'Star+Brass+Works+Seattle' }] },
+        { title: 'Columbia City (~15 min)', places: [{ name: 'Marination', detail: 'Hawaiian-Korean', maps: 'Marination+Columbia+City+Seattle' }, { name: "Curry's Culture", detail: 'Indian', maps: "Curry's+Culture+Seattle" }, { name: 'Black & Tan Hall', detail: 'Black-owned music venue + food', maps: 'Black+and+Tan+Hall+Seattle' }] },
+        { title: 'West Seattle / Alki Beach (~15 min)', places: [{ name: 'Driftwood', detail: 'Farm-to-table, superb', maps: 'Driftwood+Restaurant+West+Seattle' }, { name: 'Il Nido', detail: 'Italian', maps: 'Il+Nido+West+Seattle' }, { name: 'Otter on the Rocks', detail: 'Cocktails', maps: 'Otter+on+the+Rocks+Seattle' }] },
         { title: 'Pioneer Square / Capitol Hill (~15–20 min)', text: 'For a proper night out after the match.' },
       ],
       running: [
@@ -154,334 +252,383 @@ const CITIES = [
     },
   },
   {
-    id: 'portland',
-    label: 'Portland',
-    dates: '20–21 Jun',
+    id: 'portland', label: 'Portland', dates: '20–21 Jun',
+    startDate: '2026-06-20', endDate: '2026-06-21',
     hotel: 'Embassy Suites Downtown',
     sections: {
       dates: [
-        { type: 'sport', title: 'Portland Pickles (WCL) — Sat 20, Walker Stadium', text: '"Mom\'s Night." They lead the WCL in attendance and are gloriously over-the-top (wrestling nights, Emo Night, \'Get Married at the Game\') — the most fun, most Portland thing you could do that evening.' },
-        { type: 'sport', title: 'Portland Fire (WNBA) — Sat 20, ~5:30pm, Moda Center', text: 'Brand-new team\'s inaugural season. If home, it\'s a unique "first season ever" ticket. Check fire.wnba.com/schedule. You may have to choose between this and the Pickles.' },
+        { type: 'sport', title: "Portland Pickles (WCL) — Sat 20, Walker Stadium", text: '"Mom\'s Night." They lead the WCL in attendance and are gloriously over-the-top — the most fun, most Portland thing you could do that evening.', places: [{ name: 'Walker Stadium', detail: 'Portland Pickles — West Coast League', maps: 'Walker+Stadium+Portland+Oregon' }] },
+        { type: 'sport', title: 'Portland Fire (WNBA) — Sat 20, ~5:30pm, Moda Center', text: "Brand-new team's inaugural season. If home, it's a unique \"first season ever\" ticket. Check fire.wnba.com/schedule. You may have to choose between this and the Pickles.", places: [{ name: 'Moda Center', detail: 'Portland Fire WNBA', maps: 'Moda+Center+Portland' }] },
         { type: 'note',  title: 'Hillsboro Hops (High-A)', text: '~30 min west — possible Saturday option. Confirm at milb.com/hillsboro.' },
         { type: 'note',  title: 'No Timbers (MLS break)', text: 'Providence Park tours run; the Timbers Army scarf wall is worth a look.' },
       ],
       culture: [
-        { title: "Powell's City of Books", text: 'A full city block of books. Non-negotiable.' },
-        { title: 'Portland Japanese Garden', text: 'Washington Park — regularly called the best outside Japan; the adjacent International Rose Test Garden is free and in peak bloom in June.' },
-        { title: 'Lan Su Chinese Garden', text: 'Compact, beautiful classical garden downtown.' },
-        { title: 'Tom McCall Waterfront Park', text: 'Along the river — good for a stroll or the running loop below.' },
-        { title: 'Portland Art Museum', text: 'Recently expanded, with a room devoted to Portland-raised Mark Rothko.' },
+        { title: 'Books & Gardens', places: [{ name: "Powell's City of Books", detail: 'A full city block. Non-negotiable.', maps: "Powell's+City+of+Books+Portland" }, { name: 'Portland Japanese Garden', detail: 'Washington Park — arguably the best outside Japan', maps: 'Portland+Japanese+Garden' }, { name: 'International Rose Test Garden', detail: 'Free, peak bloom in June', maps: 'International+Rose+Test+Garden+Portland' }] },
+        { title: 'Downtown', places: [{ name: 'Lan Su Chinese Garden', detail: 'Compact, beautiful classical garden', maps: 'Lan+Su+Chinese+Garden+Portland' }, { name: 'Tom McCall Waterfront Park', detail: 'Along the river', maps: 'Tom+McCall+Waterfront+Park+Portland' }, { name: 'Portland Art Museum', detail: 'Recently expanded, Rothko room', maps: 'Portland+Art+Museum' }] },
       ],
       running: [
         { title: 'Waterfront Loop', text: 'Tom McCall Park → cross the river → Eastbank Esplanade → cross back. ~4mi car-free riverside loop.' },
         { title: 'Washington Park / Hoyt Arboretum', text: 'For hills and trees.' },
       ],
       food: [
-        { title: 'Food-Cart Pods', text: 'Cartopia (Hawthorne, fire pits at night) or WonderLove (multi-level, has a bar).' },
-        { title: 'Classics', text: 'Voodoo Doughnut (touristy but obligatory); Screen Door (Southern brunch, expect a line); Farmhouse Kitchen Thai (spectacular).' },
-        { title: 'Beer (Portland\'s whole thing)', text: "Treebeerd's Taphouse (huge list downtown) or Little Beast (sours + garden). Order a hazy IPA." },
-        { title: 'Cocktails', text: 'Teardrop Lounge (top-tier) or hidden Secret Grove.' },
-        { title: 'More Dinners', text: 'Lechon (Peruvian/South American, downtown), The Observatory (Montavilla gem); Hat Yai for famous Southern-Thai fried chicken + curry.' },
-        { title: 'Salt & Straw', text: "Portland's cult ice cream — wildly creative flavours, generous samples; locations on NW 23rd and SE Division." },
+        { title: 'Food-Cart Pods', places: [{ name: 'Cartopia', detail: 'Hawthorne · fire pits at night', maps: 'Cartopia+Portland' }, { name: 'WonderLove', detail: 'Multi-level, has a bar', maps: 'WonderLove+Food+Carts+Portland' }] },
+        { title: 'Classics', places: [{ name: 'Voodoo Doughnut', detail: 'Touristy but obligatory', maps: 'Voodoo+Doughnut+Portland' }, { name: 'Screen Door', detail: 'Southern brunch — expect a line', maps: 'Screen+Door+Portland' }, { name: 'Farmhouse Kitchen Thai', detail: 'Spectacular', maps: 'Farmhouse+Kitchen+Thai+Portland' }] },
+        { title: 'Beer', places: [{ name: "Treebeerd's Taphouse", detail: 'Huge list downtown', maps: "Treebeard's+Taphouse+Portland" }, { name: 'Little Beast', detail: 'Sours + garden', maps: 'Little+Beast+Brewing+Portland' }], text: 'Order a hazy IPA.' },
+        { title: 'Cocktails', places: [{ name: 'Teardrop Lounge', detail: 'Top-tier', maps: 'Teardrop+Cocktail+Lounge+Portland' }, { name: 'Secret Grove', detail: 'Hidden bar', maps: 'Secret+Grove+Portland' }] },
+        { title: 'More Dinners', places: [{ name: 'Lechon', detail: 'Peruvian/South American, downtown', maps: 'Lechon+Restaurant+Portland' }, { name: 'The Observatory', detail: 'Montavilla neighbourhood gem', maps: 'The+Observatory+Portland' }, { name: 'Hat Yai', detail: 'Famous Southern-Thai fried chicken + curry', maps: 'Hat+Yai+Portland' }] },
+        { title: 'Dessert', places: [{ name: 'Salt & Straw', detail: "NW 23rd or SE Division — wildly creative flavours", maps: 'Salt+and+Straw+Portland' }] },
       ],
     },
   },
   {
-    id: 'craterlake',
-    label: 'Crater Lake',
-    dates: '21–23 Jun',
+    id: 'craterlake', label: 'Crater Lake', dates: '21–23 Jun',
+    startDate: '2026-06-21', endDate: '2026-06-23',
     hotel: 'Crater Lake Lodge — remote and iconic',
     sections: {
       dates: [
         { type: 'note', title: 'No Events — The Lake Is the Show', text: 'The lodge sits at ~7,100 ft. Pace your runs and hikes, hydrate, and expect lingering snow on some trails into late June.' },
       ],
       culture: [
-        { title: 'Crater Lake Lodge (1915)', text: 'Sunset drink on the terrace over the caldera. Book the dining room well ahead.' },
-        { title: 'Rim Drive', text: '33-mile loop — check how much is plowed/open before you go.' },
-        { title: 'Watchman Peak', text: 'Short, steep, best sunset view over Wizard Island.' },
-        { title: 'Garfield Peak', text: 'From the lodge, ~3.4mi with big caldera views.' },
-        { title: 'Cleetwood Cove', text: 'The only legal trail to the water; boat tours if running.' },
+        { title: 'The Lodge & Rim', places: [{ name: 'Crater Lake Lodge (1915)', detail: 'Sunset drink on the terrace over the caldera', maps: 'Crater+Lake+Lodge+Oregon' }, { name: 'Rim Drive', detail: '33-mile loop — check plowing status', maps: 'Rim+Drive+Crater+Lake' }] },
+        { title: 'Hikes', places: [{ name: 'Watchman Peak', detail: 'Short, steep, best sunset over Wizard Island', maps: 'Watchman+Peak+Crater+Lake' }, { name: 'Garfield Peak', detail: 'From the lodge, ~3.4mi, big caldera views', maps: 'Garfield+Peak+Crater+Lake' }, { name: 'Cleetwood Cove', detail: 'Only legal trail to the water; boat tours if running', maps: 'Cleetwood+Cove+Trail+Crater+Lake' }] },
       ],
       running: [
         { title: 'Rim Village Paths / Rim Drive Shoulder', text: 'Caldera views throughout — keep it easy at altitude.' },
         { title: 'Garfield Peak as Hike-Run', text: 'If fully acclimatized — steep and rewarding.' },
       ],
       food: [
-        { title: 'Crater Lake Lodge Dining Room', text: 'Regional plates with the caldera view — book ahead.' },
-        { title: 'Annie Creek (Mazama Village)', text: 'Casual alternative, 7 miles south.' },
+        { title: 'On Site', places: [{ name: 'Crater Lake Lodge Dining Room', detail: 'Regional plates with the caldera view — book ahead', maps: 'Crater+Lake+Lodge+Dining+Room' }, { name: 'Annie Creek Restaurant', detail: 'Mazama Village, 7 miles south — casual', maps: 'Annie+Creek+Restaurant+Crater+Lake' }] },
         { title: 'Pro Tip', text: 'Bring your own wine and snacks — options are limited and signal is poor.' },
       ],
     },
   },
   {
-    id: 'napa',
-    label: 'Napa',
-    dates: '23–25 Jun',
+    id: 'napa', label: 'Napa', dates: '23–25 Jun',
+    startDate: '2026-06-23', endDate: '2026-06-25',
     hotel: 'Napa Valley Lodge, Yountville',
     sections: {
       dates: [
-        { type: 'sport', title: 'Sacramento River Cats (Triple-A) — Sutter Health Park', text: 'Home Tue 23 (6:45pm), Wed 24 (12:05pm) & Thu 25 (~1 hr from Napa). Also the temporary home of the Athletics through 2027. Tue the 23rd evening is the cleanest fit if you\'re not wrecked from the Crater Lake drive.' },
+        { type: 'sport', title: 'Sacramento River Cats (Triple-A) — Sutter Health Park', text: "Home Tue 23 (6:45pm), Wed 24 (12:05pm) & Thu 25 (~1 hr from Napa). Also the temporary home of the Athletics through 2027. Tue the 23rd evening is the cleanest fit.", places: [{ name: 'Sutter Health Park', detail: 'Sacramento, ~1 hr from Napa', maps: 'Sutter+Health+Park+Sacramento' }] },
         { type: 'event', title: 'Wine-Country Alternative', text: 'Swap sport for a hot-air balloon sunrise or cycling the Napa Valley Vine Trail between wineries.' },
         { type: 'note',  title: 'Live Music Midweek', text: 'Check downtown Napa listings — Oxbow Public Market and Uptown Theatre are the spots.' },
       ],
       culture: [
-        { title: 'Castello di Amorosa', text: 'Recreated 13th-century Tuscan castle + winery in Calistoga.' },
-        { title: 'Oxbow Public Market', text: 'Walkable from downtown Napa — artisan food stalls, local wine, coffee.' },
-        { title: 'di Rosa Center for Contemporary Art', text: 'Carneros — 200-acre estate with a big contemporary collection, sculpture park and lake, between Napa and Sonoma.' },
-        { title: 'Walkable Yountville', text: 'One of the best restaurant-per-capita towns in the country. Just wander.' },
+        { title: 'Wineries & Art', places: [{ name: 'Castello di Amorosa', detail: 'Recreated 13th-century Tuscan castle + winery', maps: 'Castello+di+Amorosa+Napa' }, { name: 'Oxbow Public Market', detail: 'Artisan food stalls, local wine, coffee', maps: 'Oxbow+Public+Market+Napa' }, { name: 'di Rosa Center for Contemporary Art', detail: '200-acre estate, sculpture park + lake, Carneros', maps: 'di+Rosa+Center+Napa' }] },
+        { title: 'Yountville', text: "One of the best restaurant-per-capita towns in the country. Just wander." },
       ],
       running: [
         { title: 'Napa Valley Vine Trail', text: 'Paved, vineyard-lined, runs through Yountville. Go early before the heat builds.' },
       ],
       food: [
-        { title: 'Wineries', text: 'Trefethen (historic estate), Truchard (tiny family operation with caves), Sequoia Grove (relaxed, under the redwoods).' },
-        { title: 'Bistro Jeanty (Yountville)', text: 'French country classic — the tomato soup en croûte is the signature. Book ahead.' },
-        { title: 'More Yountville', text: 'The Kitchen at Priest Ranch (standout burger); RH Yountville (stunning lunch). Splurge: The French Laundry (book months ahead).' },
-        { title: 'Cocktails', text: "ArBARetum; Wilfred's Lounge (tiki rooftop on the river)." },
-        { title: 'Other Options', text: "Bistro Don Giovanni (beloved local Italian in a vineyard setting, ~30 yrs) and Bear at Stanly Ranch (polished, scenic)." },
+        { title: 'Wineries', places: [{ name: 'Trefethen Family Vineyards', detail: 'Historic estate', maps: 'Trefethen+Family+Vineyards+Napa' }, { name: 'Truchard Vineyards', detail: 'Tiny family operation with caves', maps: 'Truchard+Vineyards+Napa' }, { name: 'Sequoia Grove Winery', detail: 'Relaxed, under the redwoods', maps: 'Sequoia+Grove+Winery+Napa' }] },
+        { title: 'Yountville Dining', places: [{ name: 'Bistro Jeanty', detail: 'French country classic · tomato soup en croûte', maps: 'Bistro+Jeanty+Yountville' }, { name: 'The Kitchen at Priest Ranch', detail: 'Standout burger', maps: 'Kitchen+at+Priest+Ranch+Napa' }, { name: 'RH Yountville', detail: 'Stunning lunch', maps: 'RH+Yountville' }, { name: 'The French Laundry', detail: 'Book months ahead', maps: 'French+Laundry+Yountville' }] },
+        { title: 'More Dining', places: [{ name: 'Bistro Don Giovanni', detail: 'Beloved local Italian, vineyard setting, ~30 yrs', maps: 'Bistro+Don+Giovanni+Napa' }, { name: 'Bear at Stanly Ranch', detail: 'Polished, scenic', maps: 'Bear+Restaurant+Stanly+Ranch+Napa' }] },
+        { title: 'Cocktails', places: [{ name: 'ArBARetum', detail: 'Napa cocktail bar', maps: 'ArBARetum+Napa' }, { name: "Wilfred's Lounge", detail: 'Tiki rooftop on the river', maps: "Wilfred's+Lounge+Napa" }] },
       ],
     },
   },
   {
-    id: 'sf',
-    label: 'SF/South Bay',
-    dates: '25–26 Jun',
+    id: 'sf', label: 'SF/South Bay', dates: '25–26 Jun',
+    startDate: '2026-06-25', endDate: '2026-06-26',
     hotel: 'Country Inn & Suites, San Jose Airport',
     hotelNote: 'Bland North San Jose — Uber out for everything.',
     match: { teams: 'Paraguay vs Australia', venue: "Levi's Stadium, Santa Clara", time: 'Thu 25 Jun · 7pm' },
     sections: {
       dates: [
-        { type: 'wc',    title: "Paraguay vs Australia — Levi's Stadium, 7pm", text: "The finale! Levi's is ~15 min from the hotel — leave a big buffer for match-day traffic." },
-        { type: 'sport', title: 'SF Giants vs Athletics — Oracle Park, Thu 25, 12:45pm', text: "Great solo move for Will while Andy works until 4:30 — a day game at one of the best ballparks anywhere, then meet for the 7pm match. Oracle → Levi's is doable on Caltrain or by car." },
-        { type: 'sport', title: 'Fri 26 — Evening Options', text: "Giants vs Atlanta 7:15pm + Golden State Valkyries (WNBA) at Chase Center — both likely too late for Will's 10pm flight, but good solo options for Andy." },
-        { type: 'note',  title: 'Oakland Ballers (fan-owned independent club)', text: "Home Fri 26–Sun 28 at Raimondi Park — but the 26th is Will's departure day. San Jose Giants (High-A) are away these dates." },
+        { type: 'wc',    title: "Paraguay vs Australia — Levi's Stadium, 7pm", text: "The finale! Levi's is ~15 min from the hotel — leave a big buffer for match-day traffic.", places: [{ name: "Levi's Stadium", detail: 'Santa Clara · ~15 min from hotel', maps: "Levi's+Stadium+Santa+Clara" }] },
+        { type: 'sport', title: 'SF Giants vs Athletics — Oracle Park, Thu 25, 12:45pm', text: "Great solo move for Will while Andy works until 4:30. Oracle → Levi's is doable on Caltrain/drive.", places: [{ name: 'Oracle Park', detail: 'SF Giants vs Athletics, 12:45pm', maps: 'Oracle+Park+San+Francisco' }] },
+        { type: 'sport', title: 'Fri 26 Evening Options', text: "Giants vs Atlanta 7:15pm + Golden State Valkyries (WNBA) at Chase Center — both likely too late for Will's 10pm flight.", places: [{ name: 'Oracle Park', detail: 'Giants vs Braves 7:15pm', maps: 'Oracle+Park+San+Francisco' }, { name: 'Chase Center', detail: 'Golden State Valkyries WNBA', maps: 'Chase+Center+San+Francisco' }] },
+        { type: 'note',  title: 'Oakland Ballers', text: "Fan-owned independent club, home Fri 26–Sun 28 at Raimondi Park — but the 26th is Will's departure day." },
       ],
       hotelZone: [
-        { title: 'Downtown San Jose (~10 min)', text: "San Pedro Square Market (food hall + bars), Eos & Nyx (modern Californian), Fox Tale Fermentation (craft beer), Hapa's Brewing." },
-        { title: 'Santana Row (~12 min)', text: 'Upscale outdoor dining: El Jardín (Mexican, great margaritas), Augustine, Yard House (huge beer list, sports on screens).' },
-        { title: "Santa Clara / Near Levi's (match day)", text: 'Taplands (excellent rotating taproom), thirsty.bar (pool/darts dive), The Stand and JOEY for pre-match food.' },
-        { title: 'San Francisco (~50 min)', text: 'Worth a full city day — see Culture section below.' },
+        { title: 'Downtown San Jose (~10 min)', places: [{ name: 'San Pedro Square Market', detail: 'Food hall + bars', maps: 'San+Pedro+Square+Market+San+Jose' }, { name: 'Eos & Nyx', detail: 'Modern Californian', maps: 'Eos+and+Nyx+San+Jose' }, { name: 'Fox Tale Fermentation', detail: 'Craft beer', maps: 'Fox+Tale+Fermentation+San+Jose' }, { name: "Hapa's Brewing", detail: 'Craft beer', maps: "Hapa's+Brewing+San+Jose" }] },
+        { title: 'Santana Row (~12 min)', places: [{ name: 'El Jardín', detail: 'Mexican, great margaritas', maps: 'El+Jardin+Santana+Row+San+Jose' }, { name: 'Augustine', detail: 'Upscale dining', maps: 'Augustine+Restaurant+Santana+Row' }, { name: 'Yard House', detail: 'Huge beer list, sports on screens', maps: 'Yard+House+Santana+Row+San+Jose' }] },
+        { title: "Santa Clara / Near Levi's (match day)", places: [{ name: 'Taplands', detail: 'Excellent rotating taproom', maps: 'Taplands+Santa+Clara' }, { name: 'thirsty.bar', detail: 'Pool/darts dive', maps: 'thirsty.bar+Santa+Clara' }, { name: 'The Stand', detail: 'Pre-match food', maps: 'The+Stand+American+Classics+Santa+Clara' }, { name: 'JOEY', detail: 'Pre-match food', maps: 'JOEY+Santa+Clara' }] },
+        { title: 'San Francisco (~50 min)', text: 'Worth a full city day — see Culture section.' },
       ],
       culture: [
-        { title: 'Ferry Building + Embarcadero', text: 'Golden Gate Bridge / Crissy Field, Alcatraz (book well ahead), Mission District murals + taquerias.' },
-        { title: 'SFMOMA + de Young', text: 'SFMOMA has seven floors of modern art; de Young (Golden Gate Park) has a free observation tower.' },
-        { title: 'Painted Ladies / Alamo Square', text: 'The postcard Victorian row — best shot from up in the park.' },
-        { title: 'South Bay (no SF drive)', text: 'Winchester Mystery House (San Jose, ~10 min away), The Tech Interactive (downtown SJ), Computer History Museum (Mountain View) — a proper Silicon Valley pilgrimage.' },
+        { title: 'The Waterfront', places: [{ name: 'Ferry Building Marketplace', detail: 'Embarcadero food hall', maps: 'Ferry+Building+San+Francisco' }, { name: 'Golden Gate Bridge / Crissy Field', detail: 'Walk the bridge or run the waterfront', maps: 'Crissy+Field+San+Francisco' }, { name: 'Alcatraz', detail: 'Book well ahead', maps: 'Alcatraz+Island+San+Francisco' }, { name: 'Mission District', detail: 'Murals + taquerias', maps: 'Mission+District+San+Francisco' }] },
+        { title: 'Museums', places: [{ name: 'SFMOMA', detail: 'Seven floors of modern art', maps: 'SFMOMA+San+Francisco' }, { name: 'de Young Museum', detail: 'Golden Gate Park · free observation tower', maps: 'de+Young+Museum+San+Francisco' }] },
+        { title: 'Neighbourhoods', places: [{ name: 'Painted Ladies / Alamo Square', detail: 'The postcard Victorian row', maps: 'Painted+Ladies+San+Francisco' }] },
+        { title: 'South Bay (no SF drive needed)', places: [{ name: 'Winchester Mystery House', detail: 'San Jose · ~10 min', maps: 'Winchester+Mystery+House+San+Jose' }, { name: 'The Tech Interactive', detail: 'Downtown San Jose', maps: 'The+Tech+Interactive+San+Jose' }, { name: 'Computer History Museum', detail: 'Mountain View — Silicon Valley pilgrimage', maps: 'Computer+History+Museum+Mountain+View' }] },
       ],
       running: [
         { title: 'SF: Embarcadero → Marina Green → Crissy Field', text: 'Toward the Golden Gate Bridge — the definitive SF waterfront run.' },
         { title: 'Guadalupe River Trail (San Jose)', text: 'Flat, paved, practical for a match-week jog near the hotel.' },
       ],
       food: [
-        { title: 'Mission Burrito (the city specialty)', text: 'Sit-down: The Morris (incredible duck, Chartreuse slushy) or Bottega on Valencia.' },
-        { title: 'Ferry Building', text: 'Hog Island oysters, Dandelion chocolate, local everything.' },
-        { title: 'SF Institutions', text: 'Swan Oyster Depot (legendary counter seafood, Polk St — go early), House of Prime Rib (Van Ness), Bix (art-deco jazz supper club near Jackson Square).' },
-        { title: 'Chinatown Dim Sum', text: 'City View or Delicious Dim Sum — cheap, excellent, and right downtown.' },
+        { title: 'Mission Burrito (the city specialty)', places: [{ name: 'The Morris', detail: 'Incredible duck, Chartreuse slushy', maps: 'The+Morris+San+Francisco' }, { name: 'Bottega', detail: 'On Valencia', maps: 'Bottega+Restaurant+San+Francisco' }] },
+        { title: 'Ferry Building', places: [{ name: 'Hog Island Oyster Co.', detail: 'On the bay', maps: 'Hog+Island+Oyster+Ferry+Building+SF' }, { name: 'Dandelion Chocolate', detail: 'Local everything', maps: 'Dandelion+Chocolate+San+Francisco' }] },
+        { title: 'SF Institutions', places: [{ name: 'Swan Oyster Depot', detail: 'Legendary counter seafood, Polk St — go early', maps: 'Swan+Oyster+Depot+San+Francisco' }, { name: 'House of Prime Rib', detail: 'Van Ness, a clubby classic', maps: 'House+of+Prime+Rib+San+Francisco' }, { name: 'Bix', detail: 'Art-deco jazz supper club, Jackson Square', maps: 'Bix+Restaurant+San+Francisco' }] },
+        { title: 'Chinatown Dim Sum', places: [{ name: 'City View Restaurant', detail: 'Cheap, excellent', maps: 'City+View+Restaurant+San+Francisco' }, { name: 'Delicious Dim Sum', detail: 'Chinatown', maps: 'Delicious+Dim+Sum+San+Francisco' }] },
       ],
     },
   },
 ];
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
+// ─── SEARCH ───────────────────────────────────────────────────────────────────
 
-const SECTION_META = {
-  dates:      { label: 'Dates',    icon: '📅' },
-  sporting:   { label: 'Sporting', icon: '⚽' },
-  culture:    { label: 'Culture',  icon: '🏛' },
-  running:    { label: 'Running',  icon: '🏃' },
-  food:       { label: 'Food & Drink', icon: '🍴' },
-  hotelZone:  { label: 'Hotel Zone', icon: '🚗' },
-};
-
-// Left-border colours per card type (Tailwind class strings)
-const CARD_BORDER = {
-  wc:      'border-l-amber-400',
-  sport:   'border-l-green-500',
-  event:   'border-l-teal-400',
-  note:    'border-l-slate-500',
-  culture: 'border-l-indigo-400',
-  running: 'border-l-teal-400',
-  food:    'border-l-amber-500',
-  hotel:   'border-l-orange-400',
-};
-
-const CARD_ICON = {
-  wc:      '⚽',
-  sport:   '🎟',
-  event:   '🗓',
-  note:    'ℹ',
-  culture: '🏛',
-  running: '🏃',
-  food:    '🍴',
-  hotel:   '🚗',
-};
+function searchCards(query) {
+  const q = query.toLowerCase();
+  const results = [];
+  CITIES.forEach(city => {
+    Object.entries(city.sections).forEach(([sectionKey, items]) => {
+      if (!Array.isArray(items)) return;
+      items.forEach((item, idx) => {
+        const haystack = [
+          item.title || '',
+          item.text || '',
+          ...(item.places || []).map(p => `${p.name} ${p.detail || ''}`),
+        ].join(' ').toLowerCase();
+        if (haystack.includes(q)) {
+          results.push({ city, sectionKey, item, idx });
+        }
+      });
+    });
+  });
+  return results;
+}
 
 // ─── COMPONENTS ──────────────────────────────────────────────────────────────
 
-function MatchPill({ match, compact = false }) {
-  if (!match) return null;
+function PlacesList({ places, query }) {
   return (
-    <div className={`inline-flex items-center gap-1.5 bg-amber-500/15 border border-amber-400/50 rounded-full text-amber-300 font-medium ${compact ? 'px-2.5 py-0.5 text-xs' : 'px-3 py-1 text-xs sm:text-sm'}`}>
-      <span className="text-amber-400">⚽</span>
-      <span>{match.teams}</span>
-      <span className="text-amber-400/70">·</span>
-      <span className="text-amber-200/80">{match.time}</span>
+    <ul className="mt-2 space-y-1.5">
+      {places.map((place, i) => (
+        <li key={i} className="flex items-start gap-1.5">
+          <a
+            href={mapsUrl(place.maps)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-sm text-slate-200 font-medium hover:text-sky-300 transition-colors group"
+          >
+            <MapPin size={11} className="shrink-0 mt-0.5 text-slate-500 group-hover:text-sky-400 transition-colors" />
+            <Highlight text={place.name} query={query} />
+          </a>
+          {place.detail && (
+            <span className="text-xs text-slate-500 mt-0.5 leading-tight">
+              · <Highlight text={place.detail} query={query} />
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Card({ title, text, places, type = 'culture', cardId, saved, onSave, query }) {
+  const style = CARD_STYLE[type] || CARD_STYLE.culture;
+  const isSaved = saved?.has(cardId);
+
+  return (
+    <div className={`border-l-2 ${style.border} ${style.bg} rounded-r-lg px-3 py-2.5`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className={`text-sm font-bold leading-snug ${style.title}`}>
+          <Highlight text={title} query={query} />
+        </p>
+        {onSave && (
+          <button
+            onClick={() => onSave(cardId)}
+            className={`shrink-0 mt-0.5 transition-colors ${isSaved ? 'text-amber-400' : 'text-slate-600 hover:text-slate-400'}`}
+            aria-label={isSaved ? 'Unsave' : 'Save'}
+          >
+            <Star size={13} fill={isSaved ? 'currentColor' : 'none'} />
+          </button>
+        )}
+      </div>
+      {text && (
+        <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
+          <Highlight text={text} query={query} />
+        </p>
+      )}
+      {places && places.length > 0 && <PlacesList places={places} query={query} />}
     </div>
   );
 }
 
-function Card({ title, text, type = 'culture' }) {
-  const border = CARD_BORDER[type] || 'border-l-slate-500';
-  const icon   = CARD_ICON[type]   || '•';
-
-  const accentText = type === 'wc'
-    ? 'text-amber-300'
-    : type === 'sport'
-    ? 'text-green-400'
-    : type === 'running'
-    ? 'text-teal-400'
-    : type === 'food' || type === 'event'
-    ? 'text-amber-400'
-    : type === 'hotel'
-    ? 'text-orange-400'
-    : 'text-indigo-400';
-
+function WCCard({ title, text, places, cardId, saved, onSave }) {
+  const isSaved = saved?.has(cardId);
   return (
-    <div className={`border-l-2 ${border} bg-slate-800/60 rounded-r-lg px-3 py-2.5 flex gap-2.5`}>
-      <span className="text-sm mt-0.5 select-none shrink-0">{icon}</span>
-      <div className="min-w-0">
-        <p className={`text-sm font-semibold leading-snug ${accentText}`}>{title}</p>
-        <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{text}</p>
+    <div className="border-l-2 border-l-amber-400 bg-amber-500/10 rounded-r-lg px-3 py-3">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-bold leading-snug text-amber-300">⚽ {title}</p>
+        {onSave && (
+          <button
+            onClick={() => onSave(cardId)}
+            className={`shrink-0 mt-0.5 transition-colors ${isSaved ? 'text-amber-400' : 'text-slate-600 hover:text-slate-400'}`}
+            aria-label={isSaved ? 'Unsave' : 'Save'}
+          >
+            <Star size={13} fill={isSaved ? 'currentColor' : 'none'} />
+          </button>
+        )}
+      </div>
+      {text && <p className="text-xs text-amber-200/70 mt-0.5 leading-relaxed">{text}</p>}
+      {places && places.length > 0 && <PlacesList places={places} />}
+    </div>
+  );
+}
+
+function OnYourDatesSection({ items, accentRing, cityId, saved, onSave }) {
+  return (
+    <div className={`bg-slate-800/50 border ${accentRing} rounded-xl p-3`}>
+      <div className="flex items-center gap-2 mb-3">
+        <CalendarDays size={13} className="text-slate-400" />
+        <h3 className="text-xs font-semibold tracking-wider uppercase text-slate-400">On Your Dates</h3>
+      </div>
+      <div className="grid gap-2">
+        {items.map((item, i) => {
+          const cardId = `${cityId}:dates:${i}`;
+          return item.type === 'wc'
+            ? <WCCard key={i} title={item.title} text={item.text} places={item.places} cardId={cardId} saved={saved} onSave={onSave} />
+            : <Card key={i} title={item.title} text={item.text} places={item.places} type={item.type} cardId={cardId} saved={saved} onSave={onSave} />;
+        })}
       </div>
     </div>
   );
 }
 
-function WCCard({ title, text }) {
-  return (
-    <div className="border-l-2 border-l-amber-400 bg-amber-500/10 rounded-r-lg px-3 py-3 flex gap-2.5">
-      <span className="text-base mt-0.5 select-none shrink-0">⚽</span>
-      <div className="min-w-0">
-        <p className="text-sm font-bold leading-snug text-amber-300">{title}</p>
-        <p className="text-xs text-amber-200/70 mt-0.5 leading-relaxed">{text}</p>
-      </div>
-    </div>
-  );
-}
-
-function HotelZoneCallout({ items }) {
+function HotelZoneCallout({ items, cityId, saved, onSave }) {
   return (
     <div className="bg-slate-800/80 border border-orange-400/30 rounded-xl p-3">
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-sm">🚗</span>
-        <h3 className="text-xs font-bold tracking-widest uppercase text-orange-400">Get out of the hotel zone</h3>
+        <Car size={13} className="text-orange-400" />
+        <h3 className="text-xs font-bold tracking-wider uppercase text-orange-400">Get out of the hotel zone</h3>
       </div>
       <div className="grid gap-2">
-        {items.map((item, i) => (
-          <div key={i} className="border-l-2 border-l-orange-400 bg-slate-700/40 rounded-r-lg px-3 py-2">
-            <p className="text-sm font-semibold text-orange-300">{item.title}</p>
-            <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{item.text}</p>
-          </div>
-        ))}
+        {items.map((item, i) => {
+          const cardId = `${cityId}:hotelZone:${i}`;
+          const isSaved = saved?.has(cardId);
+          return (
+            <div key={i} className="border-l-2 border-l-orange-400 bg-slate-700/40 rounded-r-lg px-3 py-2">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-bold text-orange-300">{item.title}</p>
+                {onSave && (
+                  <button onClick={() => onSave(cardId)} className={`shrink-0 mt-0.5 transition-colors ${isSaved ? 'text-amber-400' : 'text-slate-600 hover:text-slate-400'}`}>
+                    <Star size={13} fill={isSaved ? 'currentColor' : 'none'} />
+                  </button>
+                )}
+              </div>
+              {item.text && <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{item.text}</p>}
+              {item.places && item.places.length > 0 && <PlacesList places={item.places} />}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function OnYourDatesSection({ items }) {
-  return (
-    <div className="bg-slate-800/50 border border-slate-600/40 rounded-xl p-3">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-sm">📅</span>
-        <h3 className="text-xs font-bold tracking-widest uppercase text-slate-300">On Your Dates</h3>
-      </div>
-      <div className="grid gap-2">
-        {items.map((item, i) =>
-          item.type === 'wc'
-            ? <WCCard key={i} title={item.title} text={item.text} />
-            : <Card key={i} title={item.title} text={item.text} type={item.type} />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SectionCards({ items, type }) {
+function SectionCards({ items, type, cityId, sectionKey, saved, onSave, query }) {
   if (!items || items.length === 0) return null;
   return (
     <div className="grid gap-2">
       {items.map((item, i) => (
-        <Card key={i} title={item.title} text={item.text} type={type} />
+        <Card
+          key={i}
+          title={item.title}
+          text={item.text}
+          places={item.places}
+          type={type}
+          cardId={`${cityId}:${sectionKey}:${i}`}
+          saved={saved}
+          onSave={onSave}
+          query={query}
+        />
       ))}
     </div>
   );
 }
 
-function CityView({ city }) {
+function CityView({ city, activeTab, setActiveTab, saved, onSave }) {
+  const accent = CITY_ACCENT[city.id] || CITY_ACCENT.vancouver;
   const sectionKeys = Object.keys(city.sections);
-  const firstNonDates = sectionKeys.find(k => k !== 'dates' && k !== 'hotelZone') || sectionKeys[0];
-  const [activeTab, setActiveTab] = useState(firstNonDates);
-
-  // Determine visible tabs (exclude 'dates' and 'hotelZone' from tabs — they're shown inline)
   const tabs = sectionKeys.filter(k => k !== 'dates' && k !== 'hotelZone');
+
+  useEffect(() => {
+    if (!activeTab || !tabs.includes(activeTab)) {
+      setActiveTab(tabs[0] || null);
+    }
+  }, [city.id]);
+
+  const currentTab = activeTab && tabs.includes(activeTab) ? activeTab : tabs[0];
 
   return (
     <div className="flex flex-col gap-4">
-      {/* City header */}
       <div className="flex flex-col gap-1">
         <div className="flex items-baseline justify-between flex-wrap gap-x-3 gap-y-1">
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-100" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+          <h2 className={`text-xl sm:text-2xl font-bold ${accent.text}`} style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
             {city.label}
           </h2>
           <span className="text-xs text-slate-500 font-medium tracking-wide">{city.dates}</span>
         </div>
-        <p className="text-xs text-slate-500 flex items-center gap-1">
-          <span>🏨</span> {city.hotel}
+        <p className="text-xs text-slate-500 flex items-center gap-1.5">
+          <Hotel size={11} className="shrink-0" /> {city.hotel}
         </p>
         {city.hotelNote && (
-          <p className="text-xs text-orange-400/80 flex items-center gap-1 mt-0.5">
-            <span>⚠</span> {city.hotelNote}
+          <p className="text-xs text-orange-400/80 flex items-center gap-1.5 mt-0.5">
+            <AlertTriangle size={11} className="shrink-0" /> {city.hotelNote}
           </p>
         )}
-        {city.match && <div className="mt-1"><MatchPill match={city.match} /></div>}
+        {city.match && (
+          <div className="mt-1">
+            <div className="inline-flex items-center gap-1.5 bg-amber-500/15 border border-amber-400/50 rounded-full px-3 py-1 text-xs text-amber-300 font-medium">
+              <span>⚽</span>
+              <span>{city.match.teams}</span>
+              <span className="text-amber-500/60">·</span>
+              <span className="text-amber-200/80">{city.match.time}</span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* On Your Dates — always visible */}
-      {city.sections.dates && <OnYourDatesSection items={city.sections.dates} />}
+      {city.sections.dates && (
+        <OnYourDatesSection
+          items={city.sections.dates}
+          accentRing={accent.ring}
+          cityId={city.id}
+          saved={saved}
+          onSave={onSave}
+        />
+      )}
 
-      {/* Hotel Zone callout — always visible if present */}
-      {city.sections.hotelZone && <HotelZoneCallout items={city.sections.hotelZone} />}
+      {city.sections.hotelZone && (
+        <HotelZoneCallout items={city.sections.hotelZone} cityId={city.id} saved={saved} onSave={onSave} />
+      )}
 
-      {/* Section tabs */}
       {tabs.length > 0 && (
         <>
           <div className="flex gap-1 overflow-x-auto scrollbar-hide -mx-1 px-1">
             {tabs.map(key => {
-              const meta = SECTION_META[key] || { label: key, icon: '•' };
-              const isActive = activeTab === key;
+              const meta = SECTION_META[key];
+              if (!meta) return null;
+              const { Icon, label } = meta;
+              const isActive = currentTab === key;
               return (
                 <button
                   key={key}
                   onClick={() => setActiveTab(key)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                    isActive
-                      ? 'bg-slate-600 text-slate-100'
-                      : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+                    isActive ? 'bg-slate-600 text-slate-100' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
                   }`}
                 >
-                  <span>{meta.icon}</span>
-                  {meta.label}
+                  <Icon size={12} />
+                  {label}
                 </button>
               );
             })}
           </div>
 
-          {/* Tab content */}
           <div>
-            {activeTab === 'sporting' && <SectionCards items={city.sections.sporting} type="sport" />}
-            {activeTab === 'culture'  && <SectionCards items={city.sections.culture}  type="culture" />}
-            {activeTab === 'running'  && <SectionCards items={city.sections.running}  type="running" />}
-            {activeTab === 'food'     && <SectionCards items={city.sections.food}     type="food" />}
+            {currentTab && (
+              <SectionCards
+                items={city.sections[currentTab]}
+                type={currentTab === 'sporting' ? 'sport' : currentTab === 'hotelZone' ? 'hotel' : currentTab}
+                cityId={city.id}
+                sectionKey={currentTab}
+                saved={saved}
+                onSave={onSave}
+              />
+            )}
           </div>
         </>
       )}
@@ -508,23 +655,11 @@ function CheatSheet() {
             {CHEAT_SHEET.map((row, i) => {
               const isWC = row.type === 'wc';
               return (
-                <tr
-                  key={i}
-                  className={`rounded-lg ${
-                    isWC
-                      ? 'bg-amber-500/15'
-                      : i % 2 === 0
-                      ? 'bg-slate-800/60'
-                      : 'bg-slate-800/30'
-                  }`}
-                >
+                <tr key={i} className={`rounded-lg ${isWC ? 'bg-amber-500/15' : i % 2 === 0 ? 'bg-slate-800/60' : 'bg-slate-800/30'}`}>
                   <td className={`px-2 py-2 font-semibold whitespace-nowrap rounded-l-lg ${isWC ? 'text-amber-300' : 'text-slate-300'}`}>
-                    {isWC && <span className="mr-1">⚽</span>}
-                    {row.date}
+                    {isWC && <span className="mr-1">⚽</span>}{row.date}
                   </td>
-                  <td className={`px-2 py-2 whitespace-nowrap ${isWC ? 'text-amber-200/70' : 'text-slate-500'}`}>
-                    {row.city}
-                  </td>
+                  <td className={`px-2 py-2 whitespace-nowrap ${isWC ? 'text-amber-200/70' : 'text-slate-500'}`}>{row.city}</td>
                   <td className={`px-2 py-2 rounded-r-lg leading-relaxed ${isWC ? 'text-amber-200/90' : 'text-slate-400'}`}>
                     {row.event}
                     {row.note && <span className="text-slate-500 italic ml-1">({row.note})</span>}
@@ -536,99 +671,329 @@ function CheatSheet() {
         </table>
       </div>
       <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-500/30 inline-block"></span> World Cup match</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-700 inline-block"></span> Sport / local event</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-500/30 inline-block" /> World Cup match</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-700 inline-block" /> Sport / local event</span>
       </div>
     </div>
   );
 }
 
-// ─── ROOT COMPONENT ──────────────────────────────────────────────────────────
+function SavedView({ saved, onSave, navigate }) {
+  const savedItems = useMemo(() => {
+    const items = [];
+    CITIES.forEach(city => {
+      Object.entries(city.sections).forEach(([sectionKey, sectionItems]) => {
+        if (!Array.isArray(sectionItems)) return;
+        sectionItems.forEach((item, idx) => {
+          const id = `${city.id}:${sectionKey}:${idx}`;
+          if (saved.has(id)) items.push({ city, sectionKey, item, idx, id });
+        });
+      });
+    });
+    return items;
+  }, [saved]);
+
+  if (savedItems.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500">
+        <Star size={32} className="text-slate-700" />
+        <p className="text-sm">No saved items yet</p>
+        <p className="text-xs text-slate-600">Tap the star on any card to save it here</p>
+      </div>
+    );
+  }
+
+  const grouped = savedItems.reduce((acc, item) => {
+    const key = item.city.id;
+    if (!acc[key]) acc[key] = { city: item.city, items: [] };
+    acc[key].items.push(item);
+    return acc;
+  }, {});
+
+  return (
+    <div className="flex flex-col gap-5">
+      <h2 className="text-lg font-bold text-slate-100" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+        Saved — {savedItems.length} item{savedItems.length !== 1 ? 's' : ''}
+      </h2>
+      {Object.values(grouped).map(({ city, items }) => {
+        const accent = CITY_ACCENT[city.id] || CITY_ACCENT.vancouver;
+        return (
+          <div key={city.id}>
+            <button
+              onClick={() => navigate(city.id)}
+              className={`flex items-center gap-1.5 mb-2 ${accent.text} hover:opacity-80 transition-opacity`}
+            >
+              <span className="text-sm font-bold" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>{city.label}</span>
+              <ChevronRight size={14} />
+            </button>
+            <div className="grid gap-2">
+              {items.map(({ item, sectionKey, id }) => {
+                const type = sectionKey === 'sporting' ? 'sport' : sectionKey === 'hotelZone' ? 'hotel' : sectionKey;
+                return item.type === 'wc'
+                  ? <WCCard key={id} title={item.title} text={item.text} places={item.places} cardId={id} saved={saved} onSave={onSave} />
+                  : <Card key={id} title={item.title} text={item.text} places={item.places} type={type} cardId={id} saved={saved} onSave={onSave} />;
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SearchResults({ query, onNavigate }) {
+  const results = useMemo(() => searchCards(query), [query]);
+
+  if (results.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-2 text-slate-500">
+        <p className="text-sm">No results for "{query}"</p>
+      </div>
+    );
+  }
+
+  const grouped = results.reduce((acc, r) => {
+    const key = r.city.id;
+    if (!acc[key]) acc[key] = { city: r.city, results: [] };
+    acc[key].results.push(r);
+    return acc;
+  }, {});
+
+  return (
+    <div className="flex flex-col gap-5">
+      <p className="text-xs text-slate-500">{results.length} result{results.length !== 1 ? 's' : ''} for "{query}"</p>
+      {Object.values(grouped).map(({ city, results: cityResults }) => {
+        const accent = CITY_ACCENT[city.id] || CITY_ACCENT.vancouver;
+        return (
+          <div key={city.id}>
+            <button
+              onClick={() => onNavigate(city.id)}
+              className={`flex items-center gap-1.5 mb-2 ${accent.text} hover:opacity-80 transition-opacity`}
+            >
+              <span className="text-sm font-bold" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>{city.label}</span>
+              <ChevronRight size={14} />
+            </button>
+            <div className="grid gap-2">
+              {cityResults.map(({ item, sectionKey, idx }) => {
+                const type = item.type || (sectionKey === 'sporting' ? 'sport' : sectionKey === 'hotelZone' ? 'hotel' : sectionKey);
+                const meta = SECTION_META[sectionKey];
+                return (
+                  <div key={`${city.id}:${sectionKey}:${idx}`} className="relative">
+                    {meta && (
+                      <div className="flex items-center gap-1 mb-1">
+                        <meta.Icon size={10} className="text-slate-600" />
+                        <span className="text-[10px] text-slate-600 uppercase tracking-wider">{meta.label}</span>
+                      </div>
+                    )}
+                    {item.type === 'wc'
+                      ? <WCCard title={item.title} text={item.text} places={item.places} />
+                      : <Card title={item.title} text={item.text} places={item.places} type={type} query={query} />
+                    }
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── ROOT ─────────────────────────────────────────────────────────────────────
 
 export default function TripGuide() {
   const [activeCity, setActiveCity] = useState('vancouver');
+  const [activeTab, setActiveTab] = useState(null);
   const [showCheatSheet, setShowCheatSheet] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [saved, toggleSave] = useSavedCards();
+  const touchStartX = useRef(null);
+  const searchRef = useRef(null);
+
+  // Hash routing — parse on mount + popstate
+  useEffect(() => {
+    const parse = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (!hash) {
+        // Auto-nav to current trip city
+        const today = new Date().toISOString().slice(0, 10);
+        const current = CITIES.find(c => today >= c.startDate && today <= c.endDate);
+        if (current) setActiveCity(current.id);
+        return;
+      }
+      if (hash === 'cheatsheet') { setShowCheatSheet(true); setShowSaved(false); return; }
+      if (hash === 'saved') { setShowSaved(true); setShowCheatSheet(false); return; }
+      const [cityId, tab] = hash.split('/');
+      const match = CITIES.find(c => c.id === cityId);
+      if (match) {
+        setActiveCity(match.id);
+        setShowCheatSheet(false);
+        setShowSaved(false);
+        if (tab) setActiveTab(tab);
+      }
+    };
+    parse();
+    window.addEventListener('popstate', parse);
+    return () => window.removeEventListener('popstate', parse);
+  }, []);
+
+  const navigate = (cityId, tab) => {
+    const hash = tab ? `#${cityId}/${tab}` : `#${cityId}`;
+    history.pushState(null, '', hash);
+    setActiveCity(cityId);
+    setShowCheatSheet(false);
+    setShowSaved(false);
+    setSearchQuery('');
+    setSearchOpen(false);
+    if (tab) setActiveTab(tab);
+  };
+
+  const goCheatSheet = () => { history.pushState(null, '', '#cheatsheet'); setShowCheatSheet(true); setShowSaved(false); setSearchQuery(''); setSearchOpen(false); };
+  const goSaved      = () => { history.pushState(null, '', '#saved');      setShowSaved(true);  setShowCheatSheet(false); setSearchQuery(''); setSearchOpen(false); };
+
+  // Swipe to change city
+  const handleTouchStart = e => { touchStartX.current = e.touches[0].clientX; };
+  const handleTouchEnd = e => {
+    if (touchStartX.current === null || showCheatSheet || showSaved || searchQuery) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(dx) < 60) return;
+    const idx = CITIES.findIndex(c => c.id === activeCity);
+    if (dx < 0 && idx < CITIES.length - 1) navigate(CITIES[idx + 1].id);
+    if (dx > 0 && idx > 0)                  navigate(CITIES[idx - 1].id);
+    touchStartX.current = null;
+  };
+
+  // Auto-focus search input
+  useEffect(() => {
+    if (searchOpen && searchRef.current) searchRef.current.focus();
+  }, [searchOpen]);
 
   const city = CITIES.find(c => c.id === activeCity);
-
-  const HEADER_MATCHES = [
-    { teams: 'Australia vs Türkiye', venue: 'BC Place Vancouver', time: 'Sat 13 Jun' },
-    { teams: 'USA vs Australia',     venue: 'Lumen Field Seattle',  time: 'Fri 19 Jun' },
-    { teams: 'Paraguay vs Australia',venue: "Levi's Stadium SF",    time: 'Thu 25 Jun' },
-  ];
+  const savedCount = saved.size;
+  const isSearching = searchOpen && searchQuery.length > 0;
 
   return (
     <div className="min-h-dvh bg-slate-900 text-slate-100 font-sans">
-      {/* ── HEADER ── */}
+      {/* HEADER */}
       <header className="bg-slate-950 border-b border-slate-800 px-4 py-4 sticky top-0 z-30">
         <div className="max-w-2xl mx-auto">
-          <div className="flex items-baseline justify-between gap-2 flex-wrap">
-            <h1
-              className="text-lg sm:text-xl font-bold text-slate-100 leading-tight"
-              style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h1
+                className="text-lg sm:text-xl font-bold text-slate-100 leading-tight"
+                style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+              >
+                World Cup 2026 Trip Guide
+              </h1>
+              <p className="text-xs text-slate-500 mt-0.5">Pacific NW & Northern California · Socceroos Group Stage · 12–26 Jun</p>
+            </div>
+            <button
+              onClick={() => { setSearchOpen(o => !o); setSearchQuery(''); }}
+              className="shrink-0 p-1.5 text-slate-500 hover:text-slate-300 transition-colors"
+              aria-label="Search"
             >
-              World Cup 2026 Trip Guide
-            </h1>
-            <span className="text-xs text-slate-500 font-medium">12–26 Jun</span>
+              {searchOpen ? <X size={18} /> : <Search size={18} />}
+            </button>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5 mb-2.5">Pacific NW & Northern California · Socceroos Group Stage</p>
+
+          {/* Search input */}
+          {searchOpen && (
+            <div className="mt-2">
+              <input
+                ref={searchRef}
+                type="text"
+                placeholder="Search venues, restaurants, activities…"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-slate-500"
+              />
+            </div>
+          )}
+
           {/* Match pills */}
-          <div className="flex flex-wrap gap-1.5">
-            {HEADER_MATCHES.map((m, i) => (
-              <div key={i} className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 rounded-full px-2.5 py-1 text-[11px] text-amber-300 font-medium whitespace-nowrap">
-                <span>⚽</span>
-                <span>{m.teams}</span>
-                <span className="text-amber-500/60">·</span>
-                <span className="text-amber-400/70">{m.time}</span>
-                <span className="text-amber-500/40">·</span>
-                <span className="text-amber-500/60">{m.venue}</span>
-              </div>
-            ))}
-          </div>
+          {!searchOpen && (
+            <div className="flex flex-wrap gap-1.5 mt-2.5">
+              {HEADER_MATCHES.map((m, i) => (
+                <div key={i} className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 rounded-full px-2.5 py-1 text-[11px] text-amber-300 font-medium whitespace-nowrap">
+                  <span>⚽</span>
+                  <span>{m.teams}</span>
+                  <span className="text-amber-500/40 mx-0.5">·</span>
+                  <span className="text-amber-400/70">{m.date}</span>
+                  <span className="text-amber-500/40 mx-0.5">·</span>
+                  <span className="text-amber-200 font-bold">{daysUntil(m.iso)}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </header>
 
-      {/* ── CITY NAV ── */}
+      {/* CITY NAV */}
       <nav className="bg-slate-900 border-b border-slate-800 sticky top-[var(--header-h,0)] z-20">
         <div className="max-w-2xl mx-auto">
           <div className="flex overflow-x-auto scrollbar-hide">
-            {CITIES.map(c => (
-              <button
-                key={c.id}
-                onClick={() => { setActiveCity(c.id); setShowCheatSheet(false); }}
-                className={`flex-none px-3.5 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
-                  !showCheatSheet && activeCity === c.id
-                    ? 'border-b-amber-400 text-amber-300'
-                    : 'border-b-transparent text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                {c.label}
-                {c.match && <span className="ml-1 text-amber-500">⚽</span>}
-              </button>
-            ))}
+            {CITIES.map(c => {
+              const accent = CITY_ACCENT[c.id] || CITY_ACCENT.vancouver;
+              const isActive = !showCheatSheet && !showSaved && !isSearching && activeCity === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => navigate(c.id)}
+                  className={`flex-none px-3.5 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    isActive ? `${accent.nav} ${accent.text}` : 'border-b-transparent text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  {c.label}{c.match && <span className="ml-1 text-amber-500">⚽</span>}
+                </button>
+              );
+            })}
             <button
-              onClick={() => setShowCheatSheet(true)}
-              className={`flex-none px-3.5 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
-                showCheatSheet
-                  ? 'border-b-slate-400 text-slate-200'
-                  : 'border-b-transparent text-slate-500 hover:text-slate-300'
-              }`}
+              onClick={goCheatSheet}
+              className={`flex-none px-3.5 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${showCheatSheet && !isSearching ? 'border-b-slate-400 text-slate-200' : 'border-b-transparent text-slate-500 hover:text-slate-300'}`}
             >
               📋 Cheat Sheet
+            </button>
+            <button
+              onClick={goSaved}
+              className={`flex-none px-3.5 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-colors flex items-center gap-1 ${showSaved && !isSearching ? 'border-b-amber-400 text-amber-300' : 'border-b-transparent text-slate-500 hover:text-slate-300'}`}
+            >
+              <Star size={11} fill={savedCount > 0 ? 'currentColor' : 'none'} className={savedCount > 0 ? 'text-amber-400' : ''} />
+              Saved{savedCount > 0 && <span className="ml-0.5 bg-amber-500/20 text-amber-400 rounded-full px-1.5 text-[10px] font-bold">{savedCount}</span>}
             </button>
           </div>
         </div>
       </nav>
 
-      {/* ── CONTENT ── */}
-      <main className="max-w-2xl mx-auto px-4 py-5 pb-16">
-        {showCheatSheet
-          ? <CheatSheet />
-          : city && <CityView key={city.id} city={city} />
-        }
+      {/* CONTENT */}
+      <main
+        className="max-w-2xl mx-auto px-4 py-5 pb-16"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {isSearching ? (
+          <SearchResults query={searchQuery} onNavigate={navigate} />
+        ) : showCheatSheet ? (
+          <CheatSheet />
+        ) : showSaved ? (
+          <SavedView saved={saved} onSave={toggleSave} navigate={navigate} />
+        ) : city ? (
+          <CityView
+            key={city.id}
+            city={city}
+            activeTab={activeTab}
+            setActiveTab={(tab) => {
+              setActiveTab(tab);
+              history.replaceState(null, '', `#${city.id}/${tab}`);
+            }}
+            saved={saved}
+            onSave={toggleSave}
+          />
+        ) : null}
       </main>
 
-      {/* ── FOOTER ── */}
       <footer className="border-t border-slate-800 text-center py-4 text-xs text-slate-600">
         Schedules current as of early June 2026 — confirm minor-league / WNBA times the week before.
       </footer>
